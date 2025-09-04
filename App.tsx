@@ -169,8 +169,8 @@ const App: React.FC = () => {
     setWorkers(prev => [...prev, newWorker]);
   }, []);
   
-  const handleUpdateWorker = useCallback((workerId: string, newName: string) => {
-    setWorkers(prev => prev.map(w => w.id === workerId ? { ...w, name: newName, avatar: `https://i.pravatar.cc/150?u=${encodeURIComponent(newName)}` } : w));
+  const handleUpdateWorker = useCallback((workerId: string, newName: string, newAvatar: string) => {
+    setWorkers(prev => prev.map(w => w.id === workerId ? { ...w, name: newName, avatar: newAvatar } : w));
   }, []);
 
 

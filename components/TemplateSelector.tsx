@@ -32,7 +32,12 @@ const TemplatePreviewModal: React.FC<{
           <div className="space-y-3">
             {template.tasks.map((task: TaskTemplate, index: number) => (
               <div key={index} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                <p className="font-semibold text-slate-800">{task.title} <span className="text-sm font-normal text-slate-500">({task.durationMinutes} dakika)</span></p>
+                <div className="flex justify-between items-baseline gap-4">
+                    <p className="font-semibold text-slate-800">{task.title}</p>
+                    <p className="text-xl font-bold text-red-600 whitespace-nowrap">
+                        {task.durationMinutes} dakika
+                    </p>
+                </div>
                  {task.subTasks && task.subTasks.length > 0 && (
                    <ul className="mt-2 pl-5 list-disc list-outside space-y-1">
                      {task.subTasks.map((subTask, subIndex) => (

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import type { Worker } from '../types';
-import { TrashIcon, PencilIcon, SaveIcon } from './icons';
+import { TrashIcon, PencilIcon, SaveIcon, RotateCcwIcon } from './icons';
 
 interface TeamManagementProps {
   workers: Worker[];
   onAddWorker: (name: string) => void;
-  onUpdateWorker: (workerId: string, newName: string) => void;
+  onUpdateWorker: (workerId: string, newName: string, newAvatar: string) => void;
   onDeleteWorker: (workerId: string, workerName: string) => void;
 }
 
@@ -13,6 +13,7 @@ const TeamManagement: React.FC<TeamManagementProps> = ({ workers, onAddWorker, o
   const [newWorkerName, setNewWorkerName] = useState('');
   const [editingWorkerId, setEditingWorkerId] = useState<string | null>(null);
   const [editingWorkerName, setEditingWorkerName] = useState('');
+  const [editingWorkerAvatar, setEditingWorkerAvatar] = useState('');
 
   const handleAddWorker = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,16 +26,23 @@ const TeamManagement: React.FC<TeamManagementProps> = ({ workers, onAddWorker, o
   const handleEditStart = (worker: Worker) => {
     setEditingWorkerId(worker.id);
     setEditingWorkerName(worker.name);
+    setEditingWorkerAvatar(worker.avatar);
   };
 
   const handleEditCancel = () => {
     setEditingWorkerId(null);
     setEditingWorkerName('');
+    setEditingWorkerAvatar('');
   };
+
+  const handleRefreshAvatar = () => {
+    const newAvatarUrl = `https://i.pravatar.cc/150?u=${encodeURIComponent(editingWorkerName)}&t=${Date.now()}`;
+    setEditingWorkerAvatar(newAvatarUrl);
+  }
 
   const handleEditSave = () => {
     if (editingWorkerId && editingWorkerName.trim()) {
-      onUpdateWorker(editingWorkerId, editingWorkerName.trim());
+      onUpdateWorker(editingWorkerId, editingWorkerName.trim(), editingWorkerAvatar);
       handleEditCancel();
     }
   };
@@ -74,7 +82,19 @@ const TeamManagement: React.FC<TeamManagementProps> = ({ workers, onAddWorker, o
             {workers.map(worker => (
               <div key={worker.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
                 {editingWorkerId === worker.id ? (
-                  <div className="flex items-center gap-2 flex-grow">
+                  <div className="flex items-center gap-3 flex-grow">
+                    <div className="relative flex-shrink-0">
+                        <img src={editingWorkerAvatar} alt={editingWorkerName} className="w-10 h-10 rounded-full" />
+                        <button
+                            type="button"
+                            onClick={handleRefreshAvatar}
+                            className="absolute -bottom-1 -right-1 p-1 bg-white rounded-full shadow-md text-blue-500 hover:bg-blue-100 transition-colors"
+                            aria-label="Profil fotoğrafını değiştir"
+                            title="Yeni Fotoğraf"
+                        >
+                            <RotateCcwIcon className="w-4 h-4" />
+                        </button>
+                    </div>
                     <input 
                       type="text"
                       value={editingWorkerName}
@@ -83,7 +103,7 @@ const TeamManagement: React.FC<TeamManagementProps> = ({ workers, onAddWorker, o
                         if (e.key === 'Enter') handleEditSave();
                         if (e.key === 'Escape') handleEditCancel();
                       }}
-                      className="block w-full px-2 py-1 bg-white border border-blue-400 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                      className="block w-full px-2 py-1 bg-white border border-blue-400 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base text-red-600 font-semibold"
                       autoFocus
                     />
                     <button onClick={handleEditSave} className="p-2 text-green-600 hover:bg-green-100 rounded-full" aria-label="Kaydet">

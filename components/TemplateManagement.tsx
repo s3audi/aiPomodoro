@@ -98,8 +98,8 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onClo
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <h3 className="text-lg font-bold text-slate-800 p-6 border-b border-slate-200 flex-shrink-0">
+            <div className="bg-sky-50 text-slate-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <h3 className="text-lg font-bold text-slate-800 p-6 border-b border-sky-200 flex-shrink-0">
                     {template ? 'Şablonu Düzenle' : 'Yeni Şablon Oluştur'}
                 </h3>
                 <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto">
@@ -121,7 +121,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onClo
                             {/* Right Column */}
                             <div className="space-y-4">
                                 <label className="block text-base font-medium text-slate-700">Görevler ve Alt Görevler</label>
-                                <div className="space-y-3 max-h-96 overflow-y-auto pr-2 bg-slate-50 p-3 rounded-md border">
+                                <div className="space-y-3 max-h-96 overflow-y-auto pr-2 bg-sky-100 p-3 rounded-md border border-sky-200">
                                     {tasks.map((task, taskIndex) => (
                                         <div key={taskIndex} className="p-3 bg-white rounded-lg border border-slate-200">
                                             {/* Task input fields */}
@@ -160,7 +160,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onClo
                             </div>
                         </div>
                     </div>
-                    <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 flex-shrink-0">
+                    <div className="p-4 bg-sky-100 border-t border-sky-200 flex justify-end gap-3 flex-shrink-0">
                         <button type="button" onClick={onClose} className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">
                             İptal
                         </button>
