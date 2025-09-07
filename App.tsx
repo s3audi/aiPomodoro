@@ -172,9 +172,9 @@ const App: React.FC = () => {
   const [isFetchingWorkers, setIsFetchingWorkers] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
-  };
+  }, []);
 
 
   const handleCreatePackage = useCallback((newPackage: WorkPackage) => {
@@ -214,9 +214,11 @@ const App: React.FC = () => {
     setWorkPackages(prev => [newPackage, ...prev]);
     showToast(`'${template.title}' şablonundan paket oluşturuldu!`, 'success');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [workers]);
+  }, [workers, showToast]);
   
   const handleUpdateTaskStatus = useCallback((taskId: string, newStatus: TaskStatus) => {
+    let chiefAssigned: Worker | null = null;
+
     setWorkPackages(prevPackages => {
       const newPackages = [...prevPackages];
       let wpIndex = -1;
@@ -235,7 +237,8 @@ const App: React.FC = () => {
           return prevPackages;
       }
 
-      const targetTask = newPackages[wpIndex].tasks[taskIndex];
+      const targetWorkPackage = newPackages[wpIndex];
+      const targetTask = targetWorkPackage.tasks[taskIndex];
       const updatedTask = { ...targetTask, status: newStatus };
 
       if (targetTask.status === TaskStatus.Completed && newStatus === TaskStatus.Pending) {
@@ -244,8 +247,18 @@ const App: React.FC = () => {
           updatedTask.managerNotes = '';
           updatedTask.subTasks = targetTask.subTasks.map(st => ({ ...st, completed: false, completionTime: undefined }));
       }
-      if (newStatus === TaskStatus.Active && !targetTask.startTime) {
-          updatedTask.startTime = Date.now();
+      if (newStatus === TaskStatus.Active) {
+          if (!targetTask.startTime) {
+            updatedTask.startTime = Date.now();
+          }
+          // Smart Assignment on Task Start
+          if (targetWorkPackage.companyFilter && updatedTask.assignedWorkerIds.length === 0) {
+              const chief = workers.find(w => w.company === targetWorkPackage.companyFilter && w.position === 'Şef');
+              if (chief) {
+                  updatedTask.assignedWorkerIds = [chief.id];
+                  chiefAssigned = chief;
+              }
+          }
       }
       if (newStatus === TaskStatus.Completed && !targetTask.endTime) {
           updatedTask.endTime = Date.now();
@@ -254,7 +267,11 @@ const App: React.FC = () => {
       newPackages[wpIndex].tasks[taskIndex] = updatedTask;
       return newPackages;
     });
-  }, []);
+
+    if (chiefAssigned) {
+        showToast(`${chiefAssigned.name} ('Şef') göreve otomatik atandı.`, 'success');
+    }
+  }, [workers, showToast]);
   
   const handleUpdateTaskDuration = useCallback((taskId: string, newDurationMinutes: number) => {
     setWorkPackages(prevPackages =>
@@ -354,6 +371,10 @@ const App: React.FC = () => {
         
         const companyFilter = company === 'all' ? undefined : company;
         newPackages[wpIndex].companyFilter = companyFilter;
+        // Also update the work package's main company property to match the filter.
+        // This ensures it gets displayed and synced to Airtable.
+        newPackages[wpIndex].company = companyFilter;
+
 
         // Smart Assignment Logic
         if (companyFilter) {
