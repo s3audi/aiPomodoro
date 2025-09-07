@@ -90,19 +90,12 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
   const renderCompletionInfo = () => {
     if (task.status !== TaskStatus.Completed) return null;
     
-    let durationText = null;
-    if (task.endTime && task.startTime) {
-      const durationMinutes = Math.round((task.endTime - task.startTime) / (1000 * 60));
-      durationText = <p className="text-base font-bold text-red-600">Yapım Süresi: {durationMinutes} dk</p>
-    }
-
     return (
       <div className="flex items-center justify-between gap-2 mt-4 text-green-600">
         <div className="flex items-center gap-2">
           <CheckCircleIcon className="w-5 h-5" />
           <p className="text-base font-semibold">Görev başarıyla tamamlandı.</p>
         </div>
-        {durationText}
       </div>
     );
   }
@@ -188,7 +181,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
                                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                               />
                               <img src={worker.avatar} alt={worker.name} className="w-6 h-6 rounded-full" />
-                              <span className={`text-base ${task.assignedWorkerIds.includes(worker.id) ? 'font-bold text-blue-600' : 'text-slate-800'}`}>{worker.name}</span>
+                              <span className={`text-base ${task.assignedWorkerIds.includes(worker.id) ? 'font-bold text-red-600' : 'text-slate-800'}`}>{worker.name}</span>
                           </label>
                       ))}
                   </div>
@@ -205,7 +198,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
                       title={task.status !== TaskStatus.Completed ? `${worker.name} adlı personeli görevden çıkar` : ''}
                     >
                       <img src={worker.avatar} alt={worker.name} className="w-6 h-6 rounded-full" />
-                      <span className="text-slate-800">{worker.name}</span>
+                      <span className="text-red-600 font-semibold">{worker.name}</span>
                     </button>
                   ))
                 ) : (
@@ -223,7 +216,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
               <h5 className="text-base font-medium text-slate-500 mb-2">Katılabilecek Personel</h5>
               <div className="flex flex-wrap gap-2">
                 {unassignedWorkers.map(worker => (
-                  <button key={worker.id} onClick={() => onToggleWorker(worker.id)} className="flex items-center gap-2 px-3 py-1.5 text-base bg-white border border-slate-300 rounded-full hover:bg-slate-50 transition-colors">
+                  <button key={worker.id} onClick={() => onToggleWorker(worker.id)} className="flex items-center gap-2 px-3 py-1.5 text-base text-red-600 font-medium bg-white border border-slate-300 rounded-full hover:bg-red-50 transition-colors">
                     <img src={worker.avatar} alt={worker.name} className="w-5 h-5 rounded-full" />
                     {worker.name}
                   </button>
@@ -248,7 +241,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
               <div className="mt-2 space-y-1">
                 {task.subTasks.map(subTask => (
                   <label key={subTask.id} className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors ${
-                    subTask.completed ? 'bg-red-100 hover:bg-red-200' : 'bg-green-100 hover:bg-green-200'
+                    subTask.completed ? 'bg-green-100 hover:bg-green-200' : 'bg-slate-100 hover:bg-slate-200'
                   }`}>
                     <input
                       type="checkbox"
@@ -269,8 +262,34 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
               {task.startTime && (
                 <p><strong>Başlangıç:</strong> {new Date(task.startTime).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
               )}
+              {task.subTasks
+                .filter(st => st.completed && st.completionTime)
+                .sort((a, b) => a.completionTime! - b.completionTime!)
+                .map((subTask, index, sortedCompletedSubTasks) => {
+                  const previousEventTime = index === 0 
+                    ? task.startTime! 
+                    : sortedCompletedSubTasks[index - 1].completionTime!;
+                  
+                  const durationMs = subTask.completionTime! - previousEventTime;
+                  const durationMinutes = Math.max(1, Math.round(durationMs / (1000 * 60)));
+                  
+                  return (
+                    <p key={subTask.id} className="pl-4 border-l-2 border-slate-200 ml-2">
+                      <span className="font-semibold text-slate-600">{subTask.title}</span>
+                      <span className="ml-2">Bitiş {new Date(subTask.completionTime!).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="text-slate-400 italic ml-1">({durationMinutes} dakikada bitti)</span>
+                    </p>
+                  );
+              })}
               {task.endTime && task.status === TaskStatus.Completed && (
-                <p><strong>Bitiş:</strong> {new Date(task.endTime).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                <p>
+                  <strong>Bitiş:</strong> {new Date(task.endTime).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                   {task.startTime && (
+                    <span className="font-normal text-slate-400 italic ml-2">
+                        (Toplam {Math.max(1, Math.round((task.endTime - task.startTime) / (1000 * 60)))} dk'da bitti)
+                    </span>
+                  )}
+                </p>
               )}
             </div>
           )}

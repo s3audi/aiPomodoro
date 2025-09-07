@@ -14,6 +14,7 @@ export interface SubTask {
   id: string;
   title: string;
   completed: boolean;
+  completionTime?: number;
 }
 
 export interface Task {

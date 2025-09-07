@@ -51,7 +51,14 @@ const AirtableInfoModal: React.FC<AirtableInfoModalProps> = ({ onClose, onConfir
                   </li>
                   <li><code>Duration</code> (Sayı, Tamsayı formatında)</li>
                   <li><code>Assigned Workers</code> (Kısa metin)</li>
-                  <li><code>Subtask Checklist</code> (Uzun metin)</li>
+                  <li>
+                    <code>Subtask Checklist</code> (Uzun metin)
+                     <div className="text-sm text-slate-500 mt-1 ml-4 p-2 bg-slate-100 rounded">
+                        Alt görevlerin durumunu, başlığını ve tamamlanma zamanını saklar.
+                        <br />
+                        Örnek: <code>✔ Molozları topla | 2023-10-27T10:30:00.000Z</code>
+                      </div>
+                  </li>
                   <li><code>Manager Notes</code> (Uzun metin)</li>
                   <li>
                     <code>Start Time</code> (Tarih, Saat gösterimi dahil). <br />

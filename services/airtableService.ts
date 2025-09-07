@@ -98,7 +98,13 @@ export const airSync = async (workPackages: WorkPackage[], workers: Worker[]): P
           .join(', ');
 
         const subtasksString = task.subTasks
-          .map(st => `${st.completed ? '✔' : '☐'} ${st.title}`)
+          .map(st => {
+            let line = `${st.completed ? '✔' : '☐'} ${st.title}`;
+            if (st.completed && st.completionTime) {
+              line += ` | ${new Date(st.completionTime).toISOString()}`;
+            }
+            return line;
+          })
           .join('\n');
 
         newRecords.push({
@@ -174,12 +180,28 @@ export const airFetch = async (): Promise<{ workPackages: WorkPackage[], workers
       const subTasks: SubTask[] = (fields['Subtask Checklist'] || '').split('\n').map((line: string, index: number): SubTask | null => {
         const trimmedLine = line.trim();
         if (!trimmedLine) return null;
+        
         const completed = trimmedLine.startsWith('✔');
-        const title = trimmedLine.replace(/^[✔☐]\s*/, '').trim();
+        let title = trimmedLine.replace(/^[✔☐]\s*/, '').trim();
+        let completionTime: number | undefined = undefined;
+
+        if (completed && title.includes(' | ')) {
+            const parts = title.split(' | ');
+            title = parts[0].trim();
+            const dateString = parts[1] ? parts[1].trim() : '';
+            if (dateString) {
+                const parsedTimestamp = Date.parse(dateString);
+                if (!isNaN(parsedTimestamp)) {
+                    completionTime = parsedTimestamp;
+                }
+            }
+        }
+        
         return {
           id: `subtask-fetch-${record.id}-${index}`,
           title: title,
           completed: completed,
+          completionTime: completionTime,
         };
       }).filter((st): st is SubTask => st !== null && st.title !== '');
 

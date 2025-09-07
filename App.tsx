@@ -95,7 +95,7 @@ const App: React.FC = () => {
           updatedTask.startTime = undefined;
           updatedTask.endTime = undefined;
           updatedTask.managerNotes = '';
-          updatedTask.subTasks = targetTask.subTasks.map(st => ({ ...st, completed: false }));
+          updatedTask.subTasks = targetTask.subTasks.map(st => ({ ...st, completed: false, completionTime: undefined }));
       }
       if (newStatus === TaskStatus.Active && !targetTask.startTime) {
           updatedTask.startTime = Date.now();
@@ -165,7 +165,7 @@ const App: React.FC = () => {
           }
 
           const newSubTasks = task.subTasks.map(st =>
-            st.id === subTaskId ? { ...st, completed: !st.completed } : st
+            st.id === subTaskId ? { ...st, completed: !st.completed, completionTime: !st.completed ? Date.now() : undefined } : st
           );
 
           let updatedTask = { ...task, subTasks: newSubTasks };
