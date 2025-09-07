@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Task, Worker, SubTask } from '../types';
 import { TaskStatus } from '../types';
 import { POMODORO_DURATION_SECONDS } from '../constants';
@@ -20,6 +20,13 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
   const [isEditingDuration, setIsEditingDuration] = useState(false);
   const [editableDuration, setEditableDuration] = useState(String(task.durationSeconds ? task.durationSeconds / 60 : 25));
   const [managerNotes, setManagerNotes] = useState(task.managerNotes || '');
+
+  useEffect(() => {
+    // Sync local state with prop changes, e.g., when task is reopened and notes are cleared.
+    if (task.managerNotes !== managerNotes) {
+      setManagerNotes(task.managerNotes || '');
+    }
+  }, [task.managerNotes]);
 
 
   const getWorkerById = (id: string): Worker | undefined => workers.find(w => w.id === id);
@@ -79,13 +86,36 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
         return <span className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-100 rounded-full">Tamamlandı</span>;
     }
   };
+  
+  const renderCompletionInfo = () => {
+    if (task.status !== TaskStatus.Completed) return null;
+    
+    let durationText = null;
+    if (task.endTime && task.startTime) {
+      const durationMinutes = Math.round((task.endTime - task.startTime) / (1000 * 60));
+      durationText = <p className="text-base font-bold text-red-600">Yapım Süresi: {durationMinutes} dk</p>
+    }
+
+    return (
+      <div className="flex items-center justify-between gap-2 mt-4 text-green-600">
+        <div className="flex items-center gap-2">
+          <CheckCircleIcon className="w-5 h-5" />
+          <p className="text-base font-semibold">Görev başarıyla tamamlandı.</p>
+        </div>
+        {durationText}
+      </div>
+    );
+  }
+
+  const isActive = task.status === TaskStatus.Active;
 
   return (
     <div className={`p-4 mb-3 transition-shadow duration-300 bg-white border-l-4 rounded-r-lg shadow-sm ${
-      task.status === TaskStatus.Active ? 'border-blue-500 shadow-lg' : 
+      isActive ? 'border-blue-500 shadow-lg' : 
       task.status === TaskStatus.Completed ? 'border-green-500 opacity-70' : 
       'border-slate-300 hover:shadow-md'
     }`}>
+      {/* --- HEADER --- */}
       <div className="flex items-start justify-between">
         <div className="flex-1 pr-4">
           <h4 className="font-semibold text-base text-slate-800">{task.title}</h4>
@@ -119,130 +149,157 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
         {getStatusBadge()}
       </div>
 
-      {task.status === TaskStatus.Active && task.startTime && (
-        <PomodoroTimer 
-            startTime={task.startTime} 
-            onComplete={handleFinish} 
-            durationSeconds={task.durationSeconds || POMODORO_DURATION_SECONDS}
-        />
-      )}
+      <div className={isActive ? 'grid md:grid-cols-2 md:gap-x-8 mt-4' : ''}>
+        
+        {/* --- LEFT COLUMN (or full width if not active) --- */}
+        <div>
+          {isActive && task.startTime && (
+            <PomodoroTimer 
+              startTime={task.startTime} 
+              onComplete={handleFinish} 
+              durationSeconds={task.durationSeconds || POMODORO_DURATION_SECONDS}
+            />
+          )}
 
-      {task.subTasks.length > 0 && task.status !== TaskStatus.Pending && (
-        <div className="mt-4">
-          <div className="flex justify-between mb-1 text-base font-medium text-slate-600">
-              <span>Alt Görevler</span>
-              <span>{completedSubTasks} / {totalSubTasks}</span>
-          </div>
-          <div className="w-full bg-slate-200 rounded-full h-1.5">
-              <div className="bg-blue-600 h-1.5 rounded-full transition-all duration-500" style={{width: `${subTaskProgress}%`}}></div>
-          </div>
-          <div className="mt-2 space-y-1">
-            {task.subTasks.map(subTask => (
-              <label key={subTask.id} className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer ${task.status === TaskStatus.Completed ? 'cursor-default' : 'hover:bg-slate-50'}`}>
-                <input
-                  type="checkbox"
-                  checked={subTask.completed}
-                  onChange={() => task.status !== TaskStatus.Completed && onToggleSubTask(subTask.id)}
-                  disabled={task.status === TaskStatus.Completed}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className={`text-base ${subTask.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>{subTask.title}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-3">
-        <div className="flex items-center justify-between mb-2">
-            <h5 className="text-base font-medium text-slate-500">Görevdeki Ekip</h5>
-            {task.status === TaskStatus.Pending && (
+          {/* Team Section */}
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-2">
+              <h5 className="text-base font-medium text-slate-500">Görevdeki Ekip</h5>
+              {task.status === TaskStatus.Pending && (
                 <button 
-                    onClick={() => setIsEditingTeam(!isEditingTeam)} 
-                    className={`text-sm font-semibold flex items-center gap-1 px-2 py-1 rounded-full transition-colors ${isEditingTeam ? 'bg-blue-100 text-blue-700' : 'text-blue-600 hover:bg-blue-50'}`}
+                  onClick={() => setIsEditingTeam(!isEditingTeam)} 
+                  className={`text-sm font-semibold flex items-center gap-1 px-2 py-1 rounded-full transition-colors ${isEditingTeam ? 'bg-blue-100 text-blue-700' : 'text-blue-600 hover:bg-blue-50'}`}
                 >
-                    <UsersIcon className="w-4 h-4" />
-                    {isEditingTeam ? 'Kaydet' : 'Ekibi Düzenle'}
+                  <UsersIcon className="w-4 h-4" />
+                  {isEditingTeam ? 'Kaydet' : 'Ekibi Düzenle'}
                 </button>
-            )}
-        </div>
-
-        {isEditingTeam && task.status === TaskStatus.Pending ? (
-            <div className="pt-2 pb-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {workers.map(worker => (
-                        <label key={worker.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-50 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={task.assignedWorkerIds.includes(worker.id)}
-                                onChange={() => onToggleWorker(worker.id)}
-                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <img src={worker.avatar} alt={worker.name} className="w-6 h-6 rounded-full" />
-                            <span className={`text-base ${task.assignedWorkerIds.includes(worker.id) ? 'font-bold text-blue-600' : 'text-slate-800'}`}>{worker.name}</span>
-                        </label>
-                    ))}
-                </div>
-            </div>
-        ) : (
-            <div className="flex flex-wrap items-center gap-2 min-h-[40px]">
-              {assignedWorkers.length > 0 ? (
-                assignedWorkers.map(worker => (
-                  <div key={worker.id} className="flex items-center gap-2 px-2 py-1 text-base bg-slate-100 rounded-full">
-                    <img src={worker.avatar} alt={worker.name} className="w-6 h-6 rounded-full" />
-                    <span className="text-slate-800">{worker.name}</span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-base text-slate-400 italic">
-                  {task.status === TaskStatus.Pending ? "Henüz kimse atanmadı." : "Henüz kimse katılmadı."}
-                </p>
               )}
             </div>
-        )}
-      </div>
 
-      {task.status === TaskStatus.Active && unassignedWorkers.length > 0 && (
-        <div className="mt-4 pt-3 border-t">
-          <h5 className="text-base font-medium text-slate-500 mb-2">Katılabilecek Personel</h5>
-          <div className="flex flex-wrap gap-2">
-            {unassignedWorkers.map(worker => (
-              <button key={worker.id} onClick={() => onToggleWorker(worker.id)} className="flex items-center gap-2 px-3 py-1.5 text-base bg-white border border-slate-300 rounded-full hover:bg-slate-50 transition-colors">
-                <img src={worker.avatar} alt={worker.name} className="w-5 h-5 rounded-full" />
-                {worker.name}
-              </button>
-            ))}
+            {isEditingTeam && task.status === TaskStatus.Pending ? (
+              <div className="pt-2 pb-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {workers.map(worker => (
+                          <label key={worker.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-50 cursor-pointer">
+                              <input
+                                  type="checkbox"
+                                  checked={task.assignedWorkerIds.includes(worker.id)}
+                                  onChange={() => onToggleWorker(worker.id)}
+                                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              <img src={worker.avatar} alt={worker.name} className="w-6 h-6 rounded-full" />
+                              <span className={`text-base ${task.assignedWorkerIds.includes(worker.id) ? 'font-bold text-blue-600' : 'text-slate-800'}`}>{worker.name}</span>
+                          </label>
+                      ))}
+                  </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2 min-h-[40px]">
+                {assignedWorkers.length > 0 ? (
+                  assignedWorkers.map(worker => (
+                    <button
+                      key={worker.id}
+                      onClick={() => onToggleWorker(worker.id)}
+                      disabled={task.status === TaskStatus.Completed}
+                      className="flex items-center gap-2 px-2 py-1 text-base bg-slate-100 rounded-full disabled:cursor-default disabled:hover:bg-slate-100 cursor-pointer hover:bg-red-100 transition-colors"
+                      title={task.status !== TaskStatus.Completed ? `${worker.name} adlı personeli görevden çıkar` : ''}
+                    >
+                      <img src={worker.avatar} alt={worker.name} className="w-6 h-6 rounded-full" />
+                      <span className="text-slate-800">{worker.name}</span>
+                    </button>
+                  ))
+                ) : (
+                   <p className="text-base text-slate-400 italic">
+                    {task.status === TaskStatus.Pending ? "Henüz kimse atanmadı." : "Henüz kimse katılmadı."}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {/* Available Personnel Section */}
+          {isActive && unassignedWorkers.length > 0 && (
+            <div className="mt-4 pt-3 border-t">
+              <h5 className="text-base font-medium text-slate-500 mb-2">Katılabilecek Personel</h5>
+              <div className="flex flex-wrap gap-2">
+                {unassignedWorkers.map(worker => (
+                  <button key={worker.id} onClick={() => onToggleWorker(worker.id)} className="flex items-center gap-2 px-3 py-1.5 text-base bg-white border border-slate-300 rounded-full hover:bg-slate-50 transition-colors">
+                    <img src={worker.avatar} alt={worker.name} className="w-5 h-5 rounded-full" />
+                    {worker.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* --- RIGHT COLUMN (or flows below if not active) --- */}
+        <div className={isActive ? '' : 'mt-4'}>
+          {/* Subtasks Section */}
+          {task.subTasks.length > 0 && task.status !== TaskStatus.Pending && (
+            <div>
+              <div className="flex justify-between mb-1 text-base font-medium text-slate-600">
+                <span>Alt Görevler</span>
+                <span>{completedSubTasks} / {totalSubTasks}</span>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-1.5">
+                <div className="bg-blue-600 h-1.5 rounded-full transition-all duration-500" style={{width: `${subTaskProgress}%`}}></div>
+              </div>
+              <div className="mt-2 space-y-1">
+                {task.subTasks.map(subTask => (
+                  <label key={subTask.id} className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-colors ${
+                    subTask.completed ? 'bg-red-100 hover:bg-red-200' : 'bg-green-100 hover:bg-green-200'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={subTask.completed}
+                      onChange={() => onToggleSubTask(subTask.id)}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className={`text-base ${subTask.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>{subTask.title}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Start/End Time Display */}
+          {(task.startTime) && (
+            <div className="mt-4 text-sm text-slate-500 space-y-1">
+              {task.startTime && (
+                <p><strong>Başlangıç:</strong> {new Date(task.startTime).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+              )}
+              {task.endTime && task.status === TaskStatus.Completed && (
+                <p><strong>Bitiş:</strong> {new Date(task.endTime).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {renderCompletionInfo()}
+
+      {task.status === TaskStatus.Completed && (
+        <div className="mt-4 pt-4 border-t border-slate-200">
+          <h5 className="text-base font-medium text-slate-600 mb-2">Müdür Değerlendirmesi</h5>
+          <textarea
+            value={managerNotes}
+            onChange={(e) => setManagerNotes(e.target.value)}
+            placeholder="Bu görevle ilgili notlarınızı buraya ekleyin..."
+            className="w-full p-2 text-base border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            rows={3}
+          />
+          <div className="flex items-center justify-end gap-2 mt-2">
+              <button onClick={handleSaveNotes} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
+              <SaveIcon className="w-4 h-4" />
+              Notları Kaydet
+            </button>
+            <button onClick={handleReopen} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-red-500 rounded-md hover:bg-red-600 transition-colors">
+              <RotateCcwIcon className="w-4 h-4" />
+              Görevi Tekrar Aç
+            </button>
           </div>
         </div>
-      )}
-      
-      {task.status === TaskStatus.Completed && (
-         <>
-          <div className="flex items-center gap-2 mt-4 text-green-600">
-              <CheckCircleIcon className="w-5 h-5" />
-              <p className="text-base font-semibold">Görev başarıyla tamamlandı.</p>
-          </div>
-          <div className="mt-4 pt-4 border-t border-slate-200">
-            <h5 className="text-base font-medium text-slate-600 mb-2">Müdür Değerlendirmesi</h5>
-            <textarea
-              value={managerNotes}
-              onChange={(e) => setManagerNotes(e.target.value)}
-              placeholder="Bu görevle ilgili notlarınızı buraya ekleyin..."
-              className="w-full p-2 text-base border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              rows={3}
-            />
-            <div className="flex items-center justify-end gap-2 mt-2">
-               <button onClick={handleSaveNotes} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
-                <SaveIcon className="w-4 h-4" />
-                Notları Kaydet
-              </button>
-              <button onClick={handleReopen} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-red-500 rounded-md hover:bg-red-600 transition-colors">
-                <RotateCcwIcon className="w-4 h-4" />
-                Görevi Tekrar Aç
-              </button>
-            </div>
-          </div>
-        </>
       )}
 
       <div className="flex justify-end mt-4">
@@ -253,11 +310,6 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
             className="px-4 py-2 text-base font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed"
           >
             Görevi Başlat
-          </button>
-        )}
-        {task.status === TaskStatus.Active && (
-          <button onClick={handleFinish} className="px-4 py-2 text-base font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors">
-            Görevi Bitir (Ekip Şefi)
           </button>
         )}
       </div>

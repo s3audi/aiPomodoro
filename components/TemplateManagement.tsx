@@ -179,7 +179,7 @@ interface TemplateManagementProps {
     templates: WorkPackageTemplate[];
     onAddTemplate: (template: Omit<WorkPackageTemplate, 'id'>) => void;
     onUpdateTemplate: (template: WorkPackageTemplate) => void;
-    onDeleteTemplate: (templateId: string) => void;
+    onDeleteTemplate: (templateId: string, templateTitle: string) => void;
 }
 
 const TemplateManagement: React.FC<TemplateManagementProps> = ({ templates, onAddTemplate, onUpdateTemplate, onDeleteTemplate }) => {
@@ -234,7 +234,7 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ templates, onAd
                                <button onClick={() => handleEdit(template)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-100 rounded-full" aria-label="Şablonu düzenle">
                                     <PencilIcon className="w-5 h-5" />
                                 </button>
-                                <button onClick={() => onDeleteTemplate(template.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded-full" aria-label="Şablonu sil">
+                                <button onClick={() => onDeleteTemplate(template.id, template.title)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded-full" aria-label="Şablonu sil">
                                     <TrashIcon className="w-5 h-5" />
                                 </button>
                             </div>

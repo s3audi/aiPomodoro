@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { WorkPackage, Worker, AppState, WorkPackageTemplate, Task } from './types';
 import { TaskStatus } from './types';
 import { INITIAL_WORKERS } from './constants';
@@ -12,8 +12,10 @@ import { UploadIcon, DownloadIcon, UsersIcon, PackageIcon, ClipboardListIcon, Da
 import { airSync, airFetch } from './services/airtableService';
 import AirtableInfoModal from './components/AirtableInfoModal';
 import AirtableFetchConfirmModal from './components/AirtableFetchConfirmModal';
+import ConfirmModal from './components/ConfirmModal';
 
 type View = 'packages' | 'team' | 'templates';
+type DeleteTarget = { type: 'package' | 'worker' | 'template'; id: string; name: string };
 
 const App: React.FC = () => {
   const [workPackages, setWorkPackages] = useState<WorkPackage[]>([]);
@@ -26,6 +28,7 @@ const App: React.FC = () => {
   const [isFetching, setIsFetching] = useState(false);
   const [isAirtableModalOpen, setIsAirtableModalOpen] = useState(false);
   const [isAirtableFetchModalOpen, setIsAirtableFetchModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
 
   const handleCreatePackage = useCallback((newPackage: WorkPackage) => {
@@ -67,30 +70,43 @@ const App: React.FC = () => {
   }, [workers]);
   
   const handleUpdateTaskStatus = useCallback((taskId: string, newStatus: TaskStatus) => {
-    setWorkPackages(prevPackages =>
-        prevPackages.map(wp => ({
-            ...wp,
-            tasks: wp.tasks.map(task => {
-                if (task.id === taskId) {
-                    const updatedTask: Task = { ...task, status: newStatus };
-                    if (newStatus === TaskStatus.Active && !task.startTime) {
-                        updatedTask.startTime = Date.now();
-                    }
-                    if (newStatus === TaskStatus.Completed && !task.endTime) {
-                        updatedTask.endTime = Date.now();
-                    }
-                    if (task.status === TaskStatus.Completed && newStatus === TaskStatus.Pending) {
-                        updatedTask.startTime = undefined;
-                        updatedTask.endTime = undefined;
-                        updatedTask.managerNotes = '';
-                        updatedTask.subTasks = task.subTasks.map(st => ({ ...st, completed: false }));
-                    }
-                    return updatedTask;
-                }
-                return task;
-            }),
-        }))
-    );
+    setWorkPackages(prevPackages => {
+      const newPackages = [...prevPackages];
+      let wpIndex = -1;
+      let taskIndex = -1;
+
+      for (let i = 0; i < newPackages.length; i++) {
+          const foundIndex = newPackages[i].tasks.findIndex(t => t.id === taskId);
+          if (foundIndex !== -1) {
+              wpIndex = i;
+              taskIndex = foundIndex;
+              break;
+          }
+      }
+
+      if (wpIndex === -1 || taskIndex === -1) {
+          return prevPackages;
+      }
+
+      const targetTask = newPackages[wpIndex].tasks[taskIndex];
+      const updatedTask = { ...targetTask, status: newStatus };
+
+      if (targetTask.status === TaskStatus.Completed && newStatus === TaskStatus.Pending) {
+          updatedTask.startTime = undefined;
+          updatedTask.endTime = undefined;
+          updatedTask.managerNotes = '';
+          updatedTask.subTasks = targetTask.subTasks.map(st => ({ ...st, completed: false }));
+      }
+      if (newStatus === TaskStatus.Active && !targetTask.startTime) {
+          updatedTask.startTime = Date.now();
+      }
+      if (newStatus === TaskStatus.Completed && !targetTask.endTime) {
+          updatedTask.endTime = Date.now();
+      }
+
+      newPackages[wpIndex].tasks[taskIndex] = updatedTask;
+      return newPackages;
+    });
   }, []);
   
   const handleUpdateTaskDuration = useCallback((taskId: string, newDurationMinutes: number) => {
@@ -136,26 +152,51 @@ const App: React.FC = () => {
 
   const handleToggleSubTask = useCallback((taskId: string, subTaskId: string) => {
     setWorkPackages(prevPackages =>
-        prevPackages.map(wp => ({
-            ...wp,
-            tasks: wp.tasks.map(task => {
-                if (task.id !== taskId) return task;
-                return {
-                    ...task,
-                    subTasks: task.subTasks.map(st => {
-                        if (st.id !== subTaskId) return st;
-                        return { ...st, completed: !st.completed };
-                    })
-                };
-            })
-        }))
+      prevPackages.map(wp => ({
+        ...wp,
+        tasks: wp.tasks.map(task => {
+          if (task.id !== taskId) {
+            return task;
+          }
+
+          // Subtasks can be toggled only when active or completed (to allow reopening)
+          if (task.status !== TaskStatus.Active && task.status !== TaskStatus.Completed) {
+            return task;
+          }
+
+          const newSubTasks = task.subTasks.map(st =>
+            st.id === subTaskId ? { ...st, completed: !st.completed } : st
+          );
+
+          let updatedTask = { ...task, subTasks: newSubTasks };
+
+          if (task.status === TaskStatus.Active) {
+            const allSubTasksCompleted = newSubTasks.every(st => st.completed);
+            if (allSubTasksCompleted) {
+              updatedTask.status = TaskStatus.Completed;
+              updatedTask.endTime = Date.now();
+            }
+          } else if (task.status === TaskStatus.Completed) {
+            const allSubTasksIncomplete = newSubTasks.every(st => !st.completed);
+            if (allSubTasksIncomplete) {
+              // Reopen the task by resetting it
+              updatedTask.status = TaskStatus.Pending;
+              updatedTask.startTime = undefined;
+              updatedTask.endTime = undefined;
+              updatedTask.managerNotes = '';
+              // Explicitly ensure all subtasks are marked as incomplete
+              updatedTask.subTasks = newSubTasks.map(st => ({ ...st, completed: false }));
+            }
+          }
+
+          return updatedTask;
+        })
+      }))
     );
   }, []);
 
   const handleDeleteWorkPackage = useCallback((packageId: string, packageTitle: string) => {
-    if (window.confirm(`'${packageTitle}' başlıklı iş paketini silmek istediğinizden emin misiniz?`)) {
-        setWorkPackages(prevPackages => prevPackages.filter(wp => wp.id !== packageId));
-    }
+    setDeleteTarget({ type: 'package', id: packageId, name: packageTitle });
   }, []);
 
 
@@ -174,16 +215,7 @@ const App: React.FC = () => {
 
 
   const handleDeleteWorker = (workerId: string, workerName: string) => {
-    if (window.confirm(`'${workerName}' adlı personeli silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) {
-        setWorkers(prev => prev.filter(w => w.id !== workerId));
-        setWorkPackages(prev => prev.map(wp => ({
-            ...wp,
-            tasks: wp.tasks.map(task => ({
-                ...task,
-                assignedWorkerIds: task.assignedWorkerIds.filter(id => id !== workerId),
-            }))
-        })));
-    }
+    setDeleteTarget({ type: 'worker', id: workerId, name: workerName });
   };
   
   const handleAddTemplate = useCallback((template: Omit<WorkPackageTemplate, 'id'>) => {
@@ -198,10 +230,35 @@ const App: React.FC = () => {
     setTemplates(prev => prev.map(t => t.id === updatedTemplate.id ? updatedTemplate : t));
   }, []);
 
-  const handleDeleteTemplate = (templateId: string) => {
-    if (window.confirm("Bu şablonu silmek istediğinizden emin misiniz?")) {
-        setTemplates(prev => prev.filter(t => t.id !== templateId));
+  const handleDeleteTemplate = (templateId: string, templateTitle: string) => {
+    setDeleteTarget({ type: 'template', id: templateId, name: templateTitle });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+
+    const { type, id } = deleteTarget;
+
+    if (type === 'package') {
+      setWorkPackages(prev => prev.filter(wp => wp.id !== id));
+    } else if (type === 'worker') {
+      setWorkers(prev => prev.filter(w => w.id !== id));
+      setWorkPackages(prev => prev.map(wp => ({
+        ...wp,
+        tasks: wp.tasks.map(task => ({
+          ...task,
+          assignedWorkerIds: task.assignedWorkerIds.filter(workerId => workerId !== id),
+        })),
+      })));
+    } else if (type === 'template') {
+      setTemplates(prev => prev.filter(t => t.id !== id));
     }
+
+    setDeleteTarget(null);
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteTarget(null);
   };
 
   const handleExportData = () => {
@@ -367,6 +424,18 @@ const App: React.FC = () => {
             onConfirm={handleAirFetch}
           />
         )}
+
+        <ConfirmModal
+          isOpen={!!deleteTarget}
+          title="Silme Onayı"
+          message={
+            <>
+              <strong>'{deleteTarget?.name}'</strong> öğesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+            </>
+          }
+          onConfirm={handleConfirmDelete}
+          onClose={handleCancelDelete}
+        />
 
         {currentView === 'packages' && (
             <>

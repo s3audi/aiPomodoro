@@ -51,8 +51,16 @@ const AirtableInfoModal: React.FC<AirtableInfoModalProps> = ({ onClose, onConfir
                   </li>
                   <li><code>Duration</code> (Sayı, Tamsayı formatında)</li>
                   <li><code>Assigned Workers</code> (Kısa metin)</li>
-                  <li><code>Subtasks</code> (Uzun metin)</li>
+                  <li><code>Subtask Checklist</code> (Uzun metin)</li>
                   <li><code>Manager Notes</code> (Uzun metin)</li>
+                  <li>
+                    <code>Start Time</code> (Tarih, Saat gösterimi dahil). <br />
+                    <strong className="text-blue-600">Önemli:</strong> Alan ayarlarından "Use the same time zone for all collaborators" seçeneğini işaretleyin.
+                  </li>
+                  <li>
+                    <code>End Time</code> (Tarih, Saat gösterimi dahil). <br />
+                    <strong className="text-blue-600">Önemli:</strong> Alan ayarlarından "Use the same time zone for all collaborators" seçeneğini işaretleyin.
+                  </li>
                 </ul>
               </li>
             </ul>

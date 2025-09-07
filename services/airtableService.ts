@@ -27,6 +27,14 @@ const statusReverseMap: { [key: string]: TaskStatus } = {
   'Tamamlandı': TaskStatus.Completed,
 };
 
+// Helper to format a timestamp into a local ISO-like string (YYYY-MM-DDTHH:mm:ss)
+// that is compatible with Airtable's date fields when "Use the same time zone for all collaborators" is enabled.
+const formatToLocalISOWithoutTimezone = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+           `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+};
 
 // Deletes records in batches of 10
 const deleteRecords = async (recordIds: string[]) => {
@@ -100,8 +108,10 @@ export const airSync = async (workPackages: WorkPackage[], workers: Worker[]): P
             'Status': statusMap[task.status],
             'Duration': task.durationSeconds ? task.durationSeconds / 60 : undefined,
             'Assigned Workers': assignedWorkerNames,
-            'Subtasks': subtasksString,
+            'Subtask Checklist': subtasksString,
             'Manager Notes': task.managerNotes || '',
+            'Start Time': task.startTime ? formatToLocalISOWithoutTimezone(task.startTime) : undefined,
+            'End Time': task.endTime ? formatToLocalISOWithoutTimezone(task.endTime) : undefined,
           },
         });
       });
@@ -161,7 +171,7 @@ export const airFetch = async (): Promise<{ workPackages: WorkPackage[], workers
       });
 
       // Parse subtasks
-      const subTasks: SubTask[] = (fields['Subtasks'] || '').split('\n').map((line: string, index: number): SubTask | null => {
+      const subTasks: SubTask[] = (fields['Subtask Checklist'] || '').split('\n').map((line: string, index: number): SubTask | null => {
         const trimmedLine = line.trim();
         if (!trimmedLine) return null;
         const completed = trimmedLine.startsWith('✔');
@@ -183,6 +193,8 @@ export const airFetch = async (): Promise<{ workPackages: WorkPackage[], workers
         durationSeconds: (fields['Duration'] || 0) * 60,
         subTasks: subTasks,
         managerNotes: fields['Manager Notes'] || '',
+        startTime: fields['Start Time'] ? Date.parse(fields['Start Time']) : undefined,
+        endTime: fields['End Time'] ? Date.parse(fields['End Time']) : undefined,
       };
       
       workPackage.tasks.push(task);
