@@ -17,6 +17,7 @@ interface ActiveTasksViewProps {
   onToggleSubTask: (taskId: string, subTaskId: string) => void;
   onUpdateTaskDuration: (taskId: string, newDurationMinutes: number) => void;
   onUpdateTaskNotes: (taskId: string, notes: string) => void;
+  onEditWorker: (workerId: string) => void;
 }
 
 const ActiveTasksView: React.FC<ActiveTasksViewProps> = ({
@@ -26,7 +27,8 @@ const ActiveTasksView: React.FC<ActiveTasksViewProps> = ({
   onToggleTaskWorker,
   onToggleSubTask,
   onUpdateTaskDuration,
-  onUpdateTaskNotes
+  onUpdateTaskNotes,
+  onEditWorker,
 }) => {
   const activeTasks: ActiveTask[] = [];
   workPackages.forEach(wp => {
@@ -55,6 +57,7 @@ const ActiveTasksView: React.FC<ActiveTasksViewProps> = ({
                     onToggleSubTask={(subTaskId) => onToggleSubTask(task.id, subTaskId)}
                     onUpdateTaskDuration={(newDuration) => onUpdateTaskDuration(task.id, newDuration)}
                     onUpdateTaskNotes={(notes) => onUpdateTaskNotes(task.id, notes)}
+                    onEditWorker={onEditWorker}
                 />
             </div>
           ))}

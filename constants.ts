@@ -2,12 +2,12 @@
 import type { Worker } from './types';
 
 export const INITIAL_WORKERS: Worker[] = [
-  { id: 'w1', name: 'Ahmet Yılmaz', avatar: 'https://i.pravatar.cc/150?u=ahmet' },
-  { id: 'w2', name: 'Mehmet Öztürk', avatar: 'https://i.pravatar.cc/150?u=mehmet' },
-  { id: 'w3', name: 'Hasan Kaya', avatar: 'https://i.pravatar.cc/150?u=hasan' },
-  { id: 'w4', name: 'İsmail Demir', avatar: 'https://i.pravatar.cc/150?u=ismail' },
-  { id: 'w5', name: 'Ayşe Çelik', avatar: 'https://i.pravatar.cc/150?u=ayse' },
-  { id: 'w6', name: 'Fatma Şahin', avatar: 'https://i.pravatar.cc/150?u=fatma' },
+  { id: 'w1', name: 'Ahmet Yılmaz', avatar: 'https://cebi.com.tr/foto/1.png' },
+  { id: 'w2', name: 'Mehmet Öztürk', avatar: 'https://cebi.com.tr/foto/2.png' },
+  { id: 'w3', name: 'Hasan Kaya', avatar: 'https://cebi.com.tr/foto/3.png' },
+  { id: 'w4', name: 'İsmail Demir', avatar: 'https://cebi.com.tr/foto/4.png' },
+  { id: 'w5', name: 'Ayşe Çelik', avatar: 'https://cebi.com.tr/foto/5.png' },
+  { id: 'w6', name: 'Fatma Şahin', avatar: 'https://cebi.com.tr/foto/6.png' },
 ];
 
 export const POMODORO_DURATION_SECONDS = 25 * 60;

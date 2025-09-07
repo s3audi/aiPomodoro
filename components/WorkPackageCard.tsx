@@ -13,6 +13,7 @@ interface WorkPackageCardProps {
   onDeletePackage: (packageId: string, packageTitle: string) => void;
   onUpdateTaskDuration: (taskId: string, newDurationMinutes: number) => void;
   onUpdateTaskNotes: (taskId: string, notes: string) => void;
+  onEditWorker: (workerId: string) => void;
 }
 
 const WorkPackageCard: React.FC<WorkPackageCardProps> = ({ 
@@ -23,7 +24,8 @@ const WorkPackageCard: React.FC<WorkPackageCardProps> = ({
   onToggleSubTask, 
   onDeletePackage,
   onUpdateTaskDuration,
-  onUpdateTaskNotes
+  onUpdateTaskNotes,
+  onEditWorker
 }) => {
   const completedTasks = workPackage.tasks.filter(t => t.status === TaskStatus.Completed).length;
   const totalTasks = workPackage.tasks.length;
@@ -81,6 +83,7 @@ const WorkPackageCard: React.FC<WorkPackageCardProps> = ({
             onToggleSubTask={(subTaskId) => onToggleSubTask(task.id, subTaskId)}
             onUpdateTaskDuration={(newDuration) => onUpdateTaskDuration(task.id, newDuration)}
             onUpdateTaskNotes={(notes) => onUpdateTaskNotes(task.id, notes)}
+            onEditWorker={onEditWorker}
           />
         ))}
       </div>

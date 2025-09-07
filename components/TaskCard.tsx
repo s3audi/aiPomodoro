@@ -13,9 +13,10 @@ interface TaskCardProps {
   onToggleSubTask: (subTaskId: string) => void;
   onUpdateTaskDuration: (newDurationMinutes: number) => void;
   onUpdateTaskNotes: (notes: string) => void;
+  onEditWorker?: (workerId: string) => void;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onToggleWorker, onToggleSubTask, onUpdateTaskDuration, onUpdateTaskNotes }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onToggleWorker, onToggleSubTask, onUpdateTaskDuration, onUpdateTaskNotes, onEditWorker }) => {
   const [isEditingTeam, setIsEditingTeam] = useState(false);
   const [isEditingDuration, setIsEditingDuration] = useState(false);
   const [editableDuration, setEditableDuration] = useState(String(task.durationSeconds ? task.durationSeconds / 60 : 25));
@@ -193,11 +194,12 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
                     <button
                       key={worker.id}
                       onClick={() => onToggleWorker(worker.id)}
+                      onContextMenu={onEditWorker ? (e) => { e.preventDefault(); onEditWorker(worker.id); } : undefined}
                       disabled={task.status === TaskStatus.Completed}
                       className="flex items-center gap-2 px-2 py-1 text-base bg-slate-100 rounded-full disabled:cursor-default disabled:hover:bg-slate-100 cursor-pointer hover:bg-red-100 transition-colors"
-                      title={task.status !== TaskStatus.Completed ? `${worker.name} adlı personeli görevden çıkar` : ''}
+                      title={onEditWorker ? `${worker.name} adlı personeli düzenlemek için sağ tıklayın` : `${worker.name} adlı personeli görevden çıkar`}
                     >
-                      <img src={worker.avatar} alt={worker.name} className="w-6 h-6 rounded-full" />
+                      <img src={worker.avatar} alt={worker.name} className={`rounded-full object-cover transition-all duration-300 ${isActive ? 'w-12 h-12' : 'w-6 h-6'}`} />
                       <span className="text-slate-800 font-semibold">{worker.name}</span>
                     </button>
                   ))
@@ -216,8 +218,14 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
               <h5 className="text-base font-medium text-slate-500 mb-2">Katılabilecek Personel</h5>
               <div className="flex flex-wrap gap-2">
                 {unassignedWorkers.map(worker => (
-                  <button key={worker.id} onClick={() => onToggleWorker(worker.id)} className="flex items-center gap-2 px-3 py-1.5 text-base text-red-600 font-medium bg-white border border-slate-300 rounded-full hover:bg-red-50 transition-colors">
-                    <img src={worker.avatar} alt={worker.name} className="w-5 h-5 rounded-full" />
+                  <button 
+                    key={worker.id} 
+                    onClick={() => onToggleWorker(worker.id)} 
+                    onContextMenu={onEditWorker ? (e) => { e.preventDefault(); onEditWorker(worker.id); } : undefined}
+                    className="flex items-center gap-2 px-3 py-1.5 text-base text-red-600 font-medium bg-white border border-slate-300 rounded-full hover:bg-red-50 transition-colors"
+                    title={onEditWorker ? `${worker.name} adlı personeli düzenlemek için sağ tıklayın` : undefined}
+                  >
+                    <img src={worker.avatar} alt={worker.name} className={`rounded-full object-cover transition-all duration-300 ${isActive ? 'w-10 h-10' : 'w-5 h-5'}`} />
                     {worker.name}
                   </button>
                 ))}

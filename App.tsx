@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { WorkPackage, Worker, AppState, WorkPackageTemplate, Task } from './types';
 import { TaskStatus } from './types';
@@ -8,8 +9,8 @@ import WorkPackageCard from './components/WorkPackageCard';
 import TeamManagement from './components/TeamManagement';
 import TemplateSelector from './components/TemplateSelector';
 import TemplateManagement from './components/TemplateManagement';
-import { UploadIcon, DownloadIcon, UsersIcon, PackageIcon, ClipboardListIcon, DatabaseIcon, ZapIcon } from './components/icons';
-import { airSync, airFetch } from './services/airtableService';
+import { UploadIcon, DownloadIcon, UsersIcon, PackageIcon, ClipboardListIcon, DatabaseIcon, ZapIcon, SaveIcon, RotateCcwIcon } from './components/icons';
+import { airSync, airFetch, airSyncTemplates, airFetchTemplates } from './services/airtableService';
 import AirtableInfoModal from './components/AirtableInfoModal';
 import AirtableFetchConfirmModal from './components/AirtableFetchConfirmModal';
 import ConfirmModal from './components/ConfirmModal';
@@ -17,6 +18,113 @@ import ActiveTasksView from './components/ActiveTasksView';
 
 type View = 'packages' | 'activeTasks' | 'team' | 'templates';
 type DeleteTarget = { type: 'package' | 'worker' | 'template'; id: string; name: string };
+
+
+interface WorkerEditModalProps {
+  isOpen: boolean;
+  worker: Worker | null;
+  onClose: () => void;
+  onSave: (workerId: string, newName: string, newAvatar: string) => void;
+}
+
+const WorkerEditModal: React.FC<WorkerEditModalProps> = ({ isOpen, worker, onClose, onSave }) => {
+  const [name, setName] = useState('');
+  const [avatar, setAvatar] = useState('');
+  const [photoId, setPhotoId] = useState('');
+
+  useEffect(() => {
+    if (worker) {
+      setName(worker.name);
+      setAvatar(worker.avatar);
+      const match = worker.avatar.match(/foto\/(\d+)\.png/);
+      if (match && match[1]) {
+        setPhotoId(match[1]);
+      } else {
+        setPhotoId('');
+      }
+    }
+  }, [worker]);
+
+  useEffect(() => {
+      if (photoId.trim() !== '' && /^\d+$/.test(photoId.trim())) {
+          const newAvatarUrl = `https://cebi.com.tr/foto/${photoId.trim()}.png`;
+          setAvatar(newAvatarUrl);
+      }
+  }, [photoId]);
+
+  if (!isOpen || !worker) return null;
+
+  const handleSave = () => {
+    if (name.trim()) {
+      onSave(worker.id, name.trim(), avatar);
+    }
+  };
+
+  const handleRefreshAvatar = () => {
+    const isIdEmpty = photoId.trim() === '';
+    const randomNumber = isIdEmpty
+      ? Math.floor(Math.random() * 11) + 1  // 1-11 for new avatars
+      : Math.floor(Math.random() * 22) + 1; // 1-22 for existing ones
+    setPhotoId(String(randomNumber));
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-bold text-slate-800 p-6 border-b border-slate-200">Personel Düzenle</h3>
+        <div className="p-6 space-y-4">
+            <div className="flex items-center gap-4">
+                <div className="relative flex-shrink-0">
+                    <img src={avatar} alt={name} className="w-24 h-24 rounded-full object-cover border-2 border-slate-200" />
+                    <button 
+                        type="button" 
+                        onClick={handleRefreshAvatar} 
+                        className="absolute -bottom-1 -right-1 p-2 bg-white rounded-full shadow-lg text-blue-600 hover:bg-blue-100 transition-transform hover:scale-110"
+                        title="Rastgele yeni avatar"
+                    >
+                        <RotateCcwIcon className="w-5 h-5" />
+                    </button>
+                </div>
+                <div className="flex-grow space-y-3">
+                    <div>
+                        <label htmlFor="worker-edit-name" className="block text-base font-medium text-slate-700 mb-1">Personel Adı</label>
+                        <input
+                            id="worker-edit-name"
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="worker-photo-id" className="block text-base font-medium text-slate-700 mb-1">Personel Fotoğraf ID</label>
+                        <input
+                            id="worker-photo-id"
+                            type="text"
+                            value={photoId}
+                            onChange={(e) => setPhotoId(e.target.value)}
+                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                            placeholder="Örn: 15"
+                            inputMode="numeric"
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+            <button onClick={onClose} type="button" className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">
+                İptal
+            </button>
+            <button onClick={handleSave} type="button" className="inline-flex items-center gap-2 px-4 py-2 text-base font-bold text-white rounded-lg transition-colors bg-blue-600 hover:bg-blue-700">
+                <SaveIcon className="w-5 h-5" />
+                Kaydet
+            </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const App: React.FC = () => {
   const [workPackages, setWorkPackages] = useState<WorkPackage[]>([]);
@@ -30,6 +138,9 @@ const App: React.FC = () => {
   const [isAirtableModalOpen, setIsAirtableModalOpen] = useState(false);
   const [isAirtableFetchModalOpen, setIsAirtableFetchModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
+  const [isSyncingTemplates, setIsSyncingTemplates] = useState(false);
+  const [isFetchingTemplates, setIsFetchingTemplates] = useState(false);
 
 
   const handleCreatePackage = useCallback((newPackage: WorkPackage) => {
@@ -203,19 +314,26 @@ const App: React.FC = () => {
 
   const handleAddWorker = useCallback((name: string) => {
     const workerId = `w-${Date.now()}`;
+    const randomNumber = Math.floor(Math.random() * 22) + 1;
     const newWorker: Worker = {
       id: workerId,
       name,
-      // Use the unique ID for the initial avatar to prevent service-side caching issues with names.
-      // The refresh button in the editor will then generate a new avatar based on the name.
-      avatar: `https://i.pravatar.cc/150?u=${workerId}`
+      avatar: `https://cebi.com.tr/foto/${randomNumber}.png`
     };
     setWorkers(prev => [...prev, newWorker]);
   }, []);
   
   const handleUpdateWorker = useCallback((workerId: string, newName: string, newAvatar: string) => {
     setWorkers(prev => prev.map(w => w.id === workerId ? { ...w, name: newName, avatar: newAvatar } : w));
+    setEditingWorker(null);
   }, []);
+
+  const handleStartEditWorker = useCallback((workerId: string) => {
+    const workerToEdit = workers.find(w => w.id === workerId);
+    if (workerToEdit) {
+      setEditingWorker(workerToEdit);
+    }
+  }, [workers]);
 
 
   const handleDeleteWorker = (workerId: string, workerName: string) => {
@@ -350,6 +468,32 @@ const App: React.FC = () => {
     }
   };
 
+  const handleAirFetchTemplates = async () => {
+    setIsFetchingTemplates(true);
+    try {
+      const fetchedTemplates = await airFetchTemplates();
+      setTemplates(fetchedTemplates);
+      alert('Şablonlar başarıyla Airtable\'dan çekildi!');
+    } catch (error) {
+      alert(`Airtable'dan şablon çekilirken bir hata oluştu: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsFetchingTemplates(false);
+    }
+  };
+
+  const handleAirSyncTemplates = async () => {
+    setIsSyncingTemplates(true);
+    try {
+      await airSyncTemplates(templates);
+      alert('Şablonlar başarıyla Airtable\'a gönderildi!');
+    } catch (error) {
+      alert(`Airtable'a şablon gönderilirken bir hata oluştu: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsSyncingTemplates(false);
+    }
+  };
+
+
   const ongoingPackages = workPackages.filter(wp => wp.tasks.some(t => t.status !== TaskStatus.Completed));
   const completedPackages = workPackages.filter(wp => wp.tasks.every(t => t.status === TaskStatus.Completed));
 
@@ -448,6 +592,13 @@ const App: React.FC = () => {
           onClose={handleCancelDelete}
         />
 
+        <WorkerEditModal
+          isOpen={!!editingWorker}
+          worker={editingWorker}
+          onClose={() => setEditingWorker(null)}
+          onSave={handleUpdateWorker}
+        />
+
         {currentView === 'packages' && (
             <>
                  <WorkPackageCreator onCreatePackage={handleCreatePackage} />
@@ -467,6 +618,7 @@ const App: React.FC = () => {
                                 onDeletePackage={handleDeleteWorkPackage}
                                 onUpdateTaskDuration={handleUpdateTaskDuration}
                                 onUpdateTaskNotes={handleUpdateTaskNotes}
+                                onEditWorker={handleStartEditWorker}
                             />
                         ))
                     ) : (
@@ -491,6 +643,7 @@ const App: React.FC = () => {
                                 onDeletePackage={handleDeleteWorkPackage}
                                 onUpdateTaskDuration={handleUpdateTaskDuration}
                                 onUpdateTaskNotes={handleUpdateTaskNotes}
+                                onEditWorker={handleStartEditWorker}
                             />
                         ))
                     ) : (
@@ -510,14 +663,15 @@ const App: React.FC = () => {
                 onToggleSubTask={handleToggleSubTask}
                 onUpdateTaskDuration={handleUpdateTaskDuration}
                 onUpdateTaskNotes={handleUpdateTaskNotes}
+                onEditWorker={handleStartEditWorker}
             />
         )}
         {currentView === 'team' && (
             <TeamManagement
                 workers={workers}
                 onAddWorker={handleAddWorker}
-                onUpdateWorker={handleUpdateWorker}
                 onDeleteWorker={handleDeleteWorker}
+                onEditWorker={handleStartEditWorker}
             />
         )}
         {currentView === 'templates' && (
@@ -526,6 +680,10 @@ const App: React.FC = () => {
               onAddTemplate={handleAddTemplate}
               onUpdateTemplate={handleUpdateTemplate}
               onDeleteTemplate={handleDeleteTemplate}
+              onAirSync={handleAirSyncTemplates}
+              onAirFetch={handleAirFetchTemplates}
+              isSyncing={isSyncingTemplates}
+              isFetching={isFetchingTemplates}
             />
         )}
       </main>

@@ -1,4 +1,4 @@
-import type { WorkPackage, Worker, Task, SubTask } from '../types';
+import type { WorkPackage, Worker, Task, SubTask, WorkPackageTemplate, TaskTemplate } from '../types';
 import { TaskStatus } from '../types';
 
 // Adım 3'te oluşturduğunuz Personal Access Token'ı buraya yapıştırın.
@@ -7,8 +7,11 @@ const AIRTABLE_API_KEY = 'patY2yGLrAfh96M1s.f412990b6f78681ed7672e83e61da73c36b6
 const AIRTABLE_BASE_ID = 'appgMyZNvnJMRCqT1';
 // Adım 2'de oluşturduğunuz veya belirlediğiniz tablonun adını buraya yazın.
 const AIRTABLE_TABLE_NAME = 'Pomodoro';
+const AIRTABLE_TEMPLATE_TABLE_NAME = 'PomoSablon';
 
 const API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_TABLE_NAME)}`;
+const TEMPLATE_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_TEMPLATE_TABLE_NAME)}`;
+
 
 const headers = {
   Authorization: `Bearer ${AIRTABLE_API_KEY}`,
@@ -37,11 +40,11 @@ const formatToLocalISOWithoutTimezone = (timestamp: number): string => {
 };
 
 // Deletes records in batches of 10
-const deleteRecords = async (recordIds: string[]) => {
+const deleteRecords = async (recordIds: string[], apiUrl: string) => {
   for (let i = 0; i < recordIds.length; i += 10) {
     const batch = recordIds.slice(i, i + 10);
     const params = batch.map(id => `records[]=${id}`).join('&');
-    const response = await fetch(`${API_URL}?${params}`, {
+    const response = await fetch(`${apiUrl}?${params}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
     });
@@ -53,10 +56,10 @@ const deleteRecords = async (recordIds: string[]) => {
 };
 
 // Creates records in batches of 10
-const createRecords = async (records: any[]) => {
+const createRecords = async (records: any[], apiUrl: string) => {
   for (let i = 0; i < records.length; i += 10) {
     const batch = records.slice(i, i + 10);
-    const response = await fetch(API_URL, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify({ records: batch }),
@@ -83,7 +86,7 @@ export const airSync = async (workPackages: WorkPackage[], workers: Worker[]): P
 
     // 2. Delete all existing records
     if (recordIdsToDelete.length > 0) {
-      await deleteRecords(recordIdsToDelete);
+      await deleteRecords(recordIdsToDelete, API_URL);
     }
 
     // 3. Prepare new records from current app state
@@ -125,7 +128,7 @@ export const airSync = async (workPackages: WorkPackage[], workers: Worker[]): P
 
     // 4. Create new records
     if (newRecords.length > 0) {
-      await createRecords(newRecords);
+      await createRecords(newRecords, API_URL);
     }
 
   } catch (error) {
@@ -167,10 +170,11 @@ export const airFetch = async (): Promise<{ workPackages: WorkPackage[], workers
       
       workerNames.forEach(name => {
         if (!workersMap.has(name)) {
+          const randomNumber = Math.floor(Math.random() * 22) + 1;
           workersMap.set(name, {
             id: `w-fetch-${Date.now()}-${workersMap.size}`,
             name: name,
-            avatar: `https://i.pravatar.cc/150?u=${encodeURIComponent(name)}`
+            avatar: `https://cebi.com.tr/foto/${randomNumber}.png`
           });
         }
         assignedWorkerIds.push(workersMap.get(name)!.id);
@@ -228,6 +232,91 @@ export const airFetch = async (): Promise<{ workPackages: WorkPackage[], workers
     return { workPackages, workers };
   } catch (error) {
     console.error('Error fetching from Airtable:', error);
+    throw error;
+  }
+};
+
+
+export const airSyncTemplates = async (templates: WorkPackageTemplate[]): Promise<void> => {
+  try {
+    const fetchResponse = await fetch(TEMPLATE_API_URL, { headers });
+     if (!fetchResponse.ok) {
+      const error = await fetchResponse.json();
+      throw new Error(error.error?.message || 'Airtable fetch for deletion failed');
+    }
+    const existingRecords = await fetchResponse.json();
+    const recordIdsToDelete: string[] = existingRecords.records.map((r: any) => r.id);
+
+    if (recordIdsToDelete.length > 0) {
+      await deleteRecords(recordIdsToDelete, TEMPLATE_API_URL);
+    }
+    
+    const newRecords = templates.map(template => {
+      const tasksString = template.tasks.map(task => {
+        const titleLine = `${task.title} (${task.durationMinutes} min)`;
+        const subTaskLines = task.subTasks.map(st => `- ${st.title}`).join('\n');
+        return [titleLine, subTaskLines].filter(Boolean).join('\n');
+      }).join('\n---\n');
+
+      return {
+        fields: {
+          'Template Title': template.title,
+          'Description': template.description,
+          'Tasks': tasksString,
+        }
+      };
+    });
+
+    if (newRecords.length > 0) {
+      await createRecords(newRecords, TEMPLATE_API_URL);
+    }
+  } catch (error) {
+    console.error('Error syncing templates with Airtable:', error);
+    throw error;
+  }
+};
+
+
+export const airFetchTemplates = async (): Promise<WorkPackageTemplate[]> => {
+  try {
+    const response = await fetch(TEMPLATE_API_URL, { headers });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Airtable fetch failed');
+    }
+    const { records } = await response.json();
+
+    return records.map((record: any, index: number): WorkPackageTemplate => {
+      const fields = record.fields;
+      
+      const tasksString = fields['Tasks'] || '';
+      const taskBlocks = tasksString.split('---').map((b: string) => b.trim()).filter(Boolean);
+      
+      const tasks: TaskTemplate[] = taskBlocks.map((block: string) => {
+          const lines = block.split('\n').map(l => l.trim());
+          const titleLine = lines.shift() || '';
+          
+          const titleMatch = titleLine.match(/(.*)\s\((\d+)\s*min\)/);
+          const title = titleMatch ? titleMatch[1].trim() : titleLine;
+          const durationMinutes = titleMatch ? parseInt(titleMatch[2], 10) : 25;
+          
+          const subTasks = lines.map((line: string) => {
+              const subTaskTitle = line.replace(/^- \s*/, '').trim();
+              return { title: subTaskTitle };
+          }).filter((st: {title: string}) => st.title);
+          
+          return { title, durationMinutes, subTasks };
+      }).filter((t: TaskTemplate) => t.title);
+
+      return {
+        id: `tpl-fetch-${Date.now()}-${index}`,
+        title: fields['Template Title'] || 'İsimsiz Şablon',
+        description: fields['Description'] || '',
+        tasks: tasks,
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching templates from Airtable:', error);
     throw error;
   }
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { WorkPackageTemplate, TaskTemplate } from '../types';
-import { PlusIcon, TrashIcon, PencilIcon } from './icons';
+import { PlusIcon, TrashIcon, PencilIcon, DatabaseIcon, DownloadIcon, AlertTriangleIcon, ExternalLinkIcon } from './icons';
 
 type EditableTask = {
   title: string;
@@ -174,17 +174,95 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onClo
     );
 };
 
+const AirtableTemplateInfoModal: React.FC<{ onClose: () => void; onConfirm: () => void; }> = ({ onClose, onConfirm }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 border-b border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800">Airtable'a Şablon Gönder</h3>
+        </div>
+        <div className="p-6 space-y-6">
+           <p className="text-base text-slate-600">
+             Şablonların Airtable'a doğru bir şekilde gönderilmesi için Airtable hesabınızda `PomoSablon` adında bir tablo ve aşağıdaki alanları oluşturmanız gerekmektedir:
+            </p>
+            <ul className="list-decimal list-inside space-y-3 text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <li><strong>Table (Tablo):</strong> Base içinde tam olarak `PomoSablon` adında bir tablo oluşturun.</li>
+              <li>
+                <strong>Fields (Alanlar):</strong> Tablonuzda aşağıdaki alanları oluşturun:
+                <ul className="list-disc list-inside space-y-2 text-slate-600 mt-2 pl-6">
+                  <li><code>Template Title</code> (<strong>Ana Alan</strong>, Kısa metin)</li>
+                  <li><code>Description</code> (Uzun metin)</li>
+                  <li><code>Tasks</code> (Uzun metin)
+                    <div className="text-sm text-slate-500 mt-1 ml-4 p-2 bg-slate-100 rounded">
+                      Görevleri, sürelerini ve alt görevleri yapısal bir metin olarak saklar.<br />
+                      Örnek: `Pano Montajı (45 min)<br/>- Pano yerinin hazırlanması<br/>---<br/>Test ve Devreye Alma (50 min)`
+                    </div>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          <div className="flex items-start gap-3 p-4 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg">
+            <AlertTriangleIcon className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+                <h5 className="font-semibold text-amber-800">Önemli Uyarı</h5>
+                <p className="text-sm text-amber-700">Bu işlem, Airtable'daki 'PomoSablon' tablosundaki tüm mevcut kayıtları silecek ve güncel şablon listesini yeniden oluşturacaktır. Airtable'daki eski veriler kaybolacaktır.</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">İptal</button>
+          <button onClick={onConfirm} className="px-4 py-2 text-base font-bold text-white rounded-lg transition-colors bg-blue-600 hover:bg-blue-700">Onayla ve Gönder</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AirtableTemplateFetchConfirmModal: React.FC<{ onClose: () => void; onConfirm: () => void; }> = ({ onClose, onConfirm }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 border-b border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800">Airtable'dan Şablon Al</h3>
+        </div>
+        <div className="p-6">
+          <div className="flex items-start gap-3 p-4 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg">
+            <AlertTriangleIcon className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <h5 className="font-semibold text-amber-800">Onay Gerekiyor</h5>
+              <p className="text-base text-amber-700">
+                Bu işlem, Airtable'daki şablonları çekecek ve mevcut tüm yerel şablonlarınızın üzerine yazacaktır. Bu işlem geri alınamaz. Devam etmek istediğinizden emin misiniz?
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">İptal</button>
+          <button onClick={onConfirm} className="px-4 py-2 text-base font-bold text-white rounded-lg transition-colors bg-blue-600 hover:bg-blue-700">Onayla ve Al</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 interface TemplateManagementProps {
     templates: WorkPackageTemplate[];
     onAddTemplate: (template: Omit<WorkPackageTemplate, 'id'>) => void;
     onUpdateTemplate: (template: WorkPackageTemplate) => void;
     onDeleteTemplate: (templateId: string, templateTitle: string) => void;
+    onAirSync: () => void;
+    onAirFetch: () => void;
+    isSyncing: boolean;
+    isFetching: boolean;
 }
 
-const TemplateManagement: React.FC<TemplateManagementProps> = ({ templates, onAddTemplate, onUpdateTemplate, onDeleteTemplate }) => {
+const TemplateManagement: React.FC<TemplateManagementProps> = ({ templates, onAddTemplate, onUpdateTemplate, onDeleteTemplate, onAirSync, onAirFetch, isSyncing, isFetching }) => {
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState<WorkPackageTemplate | null>(null);
+    const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+    const [isFetchConfirmOpen, setIsFetchConfirmOpen] = useState(false);
+
     
     const handleAddNew = () => {
         setEditingTemplate(null);
@@ -205,22 +283,44 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ templates, onAd
         setIsEditorOpen(false);
     };
 
+    const handleConfirmSync = () => {
+        setIsInfoModalOpen(false);
+        onAirSync();
+    };
+
+    const handleConfirmFetch = () => {
+        setIsFetchConfirmOpen(false);
+        onAirFetch();
+    };
+
 
     return (
         <div className="space-y-8">
             {isEditorOpen && <TemplateEditor template={editingTemplate} onSave={handleSave} onClose={() => setIsEditorOpen(false)} />}
+            {isInfoModalOpen && <AirtableTemplateInfoModal onClose={() => setIsInfoModalOpen(false)} onConfirm={handleConfirmSync} />}
+            {isFetchConfirmOpen && <AirtableTemplateFetchConfirmModal onClose={() => setIsFetchConfirmOpen(false)} onConfirm={handleConfirmFetch} />}
             
             <div className="p-6 bg-white border border-slate-200 rounded-xl shadow-md">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex flex-wrap gap-4 justify-between items-center mb-4">
                     <h2 className="text-lg sm:text-xl font-bold text-slate-800">Şablon Yönetimi</h2>
-                    <button
-                        onClick={handleAddNew}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                        <PlusIcon className="w-5 h-5"/>
-                        Yeni Şablon Oluştur
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setIsFetchConfirmOpen(true)} disabled={isFetching || isSyncing} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
+                            <DownloadIcon className="w-4 h-4" />
+                            <span>{isFetching ? 'Alınıyor...' : 'Airtable\'dan Al'}</span>
+                        </button>
+                        <button onClick={() => setIsInfoModalOpen(true)} disabled={isSyncing || isFetching} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
+                            <DatabaseIcon className="w-4 h-4" />
+                            <span>{isSyncing ? 'Gönderiliyor...' : 'Airtable\'a Gönder'}</span>
+                        </button>
+                         <button
+                            onClick={handleAddNew}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <PlusIcon className="w-5 h-5"/>
+                            Yeni Şablon
+                        </button>
+                    </div>
                 </div>
-                 <p className="text-base text-slate-500 mb-6">İş paketleri için özel şablonlar oluşturun, düzenleyin veya silin.</p>
+                 <p className="text-base text-slate-500 mb-6">İş paketleri için özel şablonlar oluşturun, düzenleyin veya silin. Airtable ile senkronize edebilirsiniz.</p>
                 
                 {templates.length > 0 ? (
                     <div className="space-y-3">
