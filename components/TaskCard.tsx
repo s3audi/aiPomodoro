@@ -179,7 +179,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
                                 className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                             <img src={worker.avatar} alt={worker.name} className="w-6 h-6 rounded-full" />
-                            <span className={`text-base ${task.assignedWorkerIds.includes(worker.id) ? 'font-bold text-red-600' : 'text-slate-800'}`}>{worker.name}</span>
+                            <span className={`text-base ${task.assignedWorkerIds.includes(worker.id) ? 'font-bold text-blue-600' : 'text-slate-800'}`}>{worker.name}</span>
                         </label>
                     ))}
                 </div>

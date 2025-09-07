@@ -39,7 +39,6 @@ export interface AppState {
   workPackages: WorkPackage[];
   workers: Worker[];
   templates?: WorkPackageTemplate[];
-  airtableRecordId?: string;
 }
 
 // For templates

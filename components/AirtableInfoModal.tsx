@@ -2,18 +2,14 @@ import React from 'react';
 import { AlertTriangleIcon, ExternalLinkIcon } from './icons';
 
 interface AirtableInfoModalProps {
-  action: 'sync' | 'fetch';
   onClose: () => void;
   onConfirm: () => void;
 }
 
-const AirtableInfoModal: React.FC<AirtableInfoModalProps> = ({ action, onClose, onConfirm }) => {
-  const isSync = action === 'sync';
-  const title = isSync ? "Airtable'a Veri Gönder" : "Airtable'dan Veri Al";
-  const confirmButtonText = isSync ? 'Onayla ve Gönder' : 'Onayla ve Al';
-  const warningText = isSync 
-    ? "Bu işlem, mevcut uygulama verilerinizi Airtable'daki kaydın üzerine yazacaktır. Airtable'da kayıt yoksa yeni bir kayıt oluşturulacaktır."
-    : "Bu işlem, Airtable'dan alınan verileri mevcut uygulama verilerinizin üzerine yazacaktır. Mevcut verileriniz kaybolabilir.";
+const AirtableInfoModal: React.FC<AirtableInfoModalProps> = ({ onClose, onConfirm }) => {
+  const title = "Airtable'a Veri Gönder";
+  const confirmButtonText = 'Onayla ve Tümünü Gönder';
+  const warningText = "Bu işlem, Airtable'daki 'Pomodoro' tablosundaki tüm mevcut kayıtları silecek ve güncel görev listesini yeniden oluşturacaktır. Airtable'daki eski veriler kaybolacaktır.";
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -35,9 +31,9 @@ const AirtableInfoModal: React.FC<AirtableInfoModalProps> = ({ action, onClose, 
           <div>
             <h4 className="font-semibold text-slate-700 mb-2">Kurulum Talimatları</h4>
             <p className="text-base text-slate-600 mb-4">
-              Senkronizasyonun çalışması için Airtable hesabınızda aşağıdaki gibi bir yapı oluşturmanız gerekmektedir:
+              Görevlerin Airtable'a doğru bir şekilde gönderilmesi için Airtable hesabınızda aşağıdaki yapıyı oluşturmanız gerekmektedir:
             </p>
-            <ul className="list-decimal list-inside space-y-2 text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <ul className="list-decimal list-inside space-y-3 text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-200">
               <li>
                 <strong>Base (Veritabanı):</strong> Koddaki (`services/airtableService.ts`) ID ile eşleşen bir Base kullanın.
                 <div className="text-sm text-slate-500 mt-1 ml-4 p-2 bg-slate-100 rounded">Base ID: `appgMyZNvnJMRCqT1`</div>
@@ -46,7 +42,18 @@ const AirtableInfoModal: React.FC<AirtableInfoModalProps> = ({ action, onClose, 
                 <strong>Table (Tablo):</strong> Base içinde tam olarak `Pomodoro` adında bir tablo oluşturun.
               </li>
               <li>
-                <strong>Fields (Alanlar):</strong> Tablonun birincil alanı (ilk sütun) `Name` adında ve `Single line text` tipinde olmalıdır. Tüm uygulama verileri bu alana kaydedilecektir. Başka bir alana gerek yoktur.
+                <strong>Fields (Alanlar):</strong> Tablonuzda aşağıdaki alanların (sütunların) tam olarak belirtilen isimler ve tiplerde oluşturulduğundan emin olun:
+                <ul className="list-disc list-inside space-y-2 text-slate-600 mt-2 pl-6">
+                  <li><code>Task Title</code> (<strong>Ana Alan</strong>, Kısa metin)</li>
+                  <li><code>Work Package</code> (Kısa metin)</li>
+                  <li>
+                    <code>Status</code> (Tekli seçim. Seçenekler tam olarak şunlar olmalıdır: <code className="bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded-md text-sm">Bekliyor</code>, <code className="bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded-md text-sm">Aktif</code>, <code className="bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded-md text-sm">Tamamlandı</code>)
+                  </li>
+                  <li><code>Duration</code> (Sayı, Tamsayı formatında)</li>
+                  <li><code>Assigned Workers</code> (Kısa metin)</li>
+                  <li><code>Subtasks</code> (Uzun metin)</li>
+                  <li><code>Manager Notes</code> (Uzun metin)</li>
+                </ul>
               </li>
             </ul>
           </div>
@@ -64,7 +71,7 @@ const AirtableInfoModal: React.FC<AirtableInfoModalProps> = ({ action, onClose, 
           <button onClick={onClose} className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">
             İptal
           </button>
-          <button onClick={onConfirm} className={`px-4 py-2 text-base font-bold text-white rounded-lg transition-colors ${isSync ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+          <button onClick={onConfirm} className="px-4 py-2 text-base font-bold text-white rounded-lg transition-colors bg-blue-600 hover:bg-blue-700">
             {confirmButtonText}
           </button>
         </div>

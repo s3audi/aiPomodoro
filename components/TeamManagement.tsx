@@ -103,7 +103,7 @@ const TeamManagement: React.FC<TeamManagementProps> = ({ workers, onAddWorker, o
                         if (e.key === 'Enter') handleEditSave();
                         if (e.key === 'Escape') handleEditCancel();
                       }}
-                      className="block w-full px-2 py-1 bg-white border border-blue-400 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base text-red-600 font-semibold"
+                      className="block w-full px-2 py-1 bg-white border border-blue-400 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base text-blue-600 font-semibold"
                       autoFocus
                     />
                     <button onClick={handleEditSave} className="p-2 text-green-600 hover:bg-green-100 rounded-full" aria-label="Kaydet">

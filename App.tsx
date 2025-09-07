@@ -9,8 +9,9 @@ import TeamManagement from './components/TeamManagement';
 import TemplateSelector from './components/TemplateSelector';
 import TemplateManagement from './components/TemplateManagement';
 import { UploadIcon, DownloadIcon, UsersIcon, PackageIcon, ClipboardListIcon, DatabaseIcon } from './components/icons';
-import { airFetch, airSync } from './services/airtableService';
+import { airSync, airFetch } from './services/airtableService';
 import AirtableInfoModal from './components/AirtableInfoModal';
+import AirtableFetchConfirmModal from './components/AirtableFetchConfirmModal';
 
 type View = 'packages' | 'team' | 'templates';
 
@@ -21,11 +22,10 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('packages');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [airtableRecordId, setAirtableRecordId] = useState<string | undefined>();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [isAirtableModalOpen, setIsAirtableModalOpen] = useState(false);
-  const [airtableAction, setAirtableAction] = useState<'sync' | 'fetch' | null>(null);
+  const [isAirtableFetchModalOpen, setIsAirtableFetchModalOpen] = useState(false);
 
 
   const handleCreatePackage = useCallback((newPackage: WorkPackage) => {
@@ -65,113 +65,92 @@ const App: React.FC = () => {
     setWorkPackages(prev => [newPackage, ...prev]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [workers]);
-
-  const handleUpdateTaskStatus = useCallback((packageId: string, taskId: string, newStatus: TaskStatus) => {
-    setWorkPackages(prevPackages => 
-      prevPackages.map(wp => {
-        if (wp.id === packageId) {
-          return {
+  
+  const handleUpdateTaskStatus = useCallback((taskId: string, newStatus: TaskStatus) => {
+    setWorkPackages(prevPackages =>
+        prevPackages.map(wp => ({
             ...wp,
             tasks: wp.tasks.map(task => {
-              if (task.id === taskId) {
-                const updatedTask: Task = { ...task, status: newStatus };
-                if (newStatus === TaskStatus.Active && !task.startTime) {
-                  updatedTask.startTime = Date.now();
+                if (task.id === taskId) {
+                    const updatedTask: Task = { ...task, status: newStatus };
+                    if (newStatus === TaskStatus.Active && !task.startTime) {
+                        updatedTask.startTime = Date.now();
+                    }
+                    if (newStatus === TaskStatus.Completed && !task.endTime) {
+                        updatedTask.endTime = Date.now();
+                    }
+                    if (task.status === TaskStatus.Completed && newStatus === TaskStatus.Pending) {
+                        updatedTask.startTime = undefined;
+                        updatedTask.endTime = undefined;
+                        updatedTask.managerNotes = '';
+                        updatedTask.subTasks = task.subTasks.map(st => ({ ...st, completed: false }));
+                    }
+                    return updatedTask;
                 }
-                if (newStatus === TaskStatus.Completed && !task.endTime) {
-                    updatedTask.endTime = Date.now();
-                }
-                if (task.status === TaskStatus.Completed && newStatus === TaskStatus.Pending) {
-                    updatedTask.startTime = undefined;
-                    updatedTask.endTime = undefined;
-                    updatedTask.managerNotes = '';
-                    updatedTask.subTasks = task.subTasks.map(st => ({ ...st, completed: false }));
-                }
-                return updatedTask;
-              }
-              return task;
+                return task;
             }),
-          };
-        }
-        return wp;
-      })
+        }))
     );
   }, []);
   
-  const handleUpdateTaskDuration = useCallback((packageId: string, taskId: string, newDurationMinutes: number) => {
+  const handleUpdateTaskDuration = useCallback((taskId: string, newDurationMinutes: number) => {
     setWorkPackages(prevPackages =>
-        prevPackages.map(wp => {
-            if (wp.id !== packageId) return wp;
-            return {
-                ...wp,
-                tasks: wp.tasks.map(task => {
-                    if (task.id !== taskId) return task;
-                    return { ...task, durationSeconds: newDurationMinutes * 60 };
-                })
-            };
-        })
+        prevPackages.map(wp => ({
+            ...wp,
+            tasks: wp.tasks.map(task => {
+                if (task.id !== taskId) return task;
+                return { ...task, durationSeconds: newDurationMinutes * 60 };
+            })
+        }))
     );
   }, []);
 
-  const handleUpdateTaskNotes = useCallback((packageId: string, taskId: string, notes: string) => {
+  const handleUpdateTaskNotes = useCallback((taskId: string, notes: string) => {
       setWorkPackages(prevPackages =>
-          prevPackages.map(wp => {
-              if (wp.id !== packageId) return wp;
-              return {
-                  ...wp,
-                  tasks: wp.tasks.map(task => {
-                      if (task.id !== taskId) return task;
-                      return { ...task, managerNotes: notes };
-                  })
-              };
-          })
+          prevPackages.map(wp => ({
+              ...wp,
+              tasks: wp.tasks.map(task => {
+                  if (task.id !== taskId) return task;
+                  return { ...task, managerNotes: notes };
+              })
+          }))
       );
   }, []);
 
 
-  const handleToggleTaskWorker = useCallback((packageId: string, taskId: string, workerId: string) => {
-    setWorkPackages(prevPackages => 
-      prevPackages.map(wp => {
-        if (wp.id === packageId) {
-          return {
+  const handleToggleTaskWorker = useCallback((taskId: string, workerId: string) => {
+    setWorkPackages(prevPackages =>
+        prevPackages.map(wp => ({
             ...wp,
             tasks: wp.tasks.map(task => {
-              if (task.id === taskId) {
+                if (task.id !== taskId) return task;
                 const isAssigned = task.assignedWorkerIds.includes(workerId);
-                const newAssignedWorkerIds = isAssigned 
-                  ? task.assignedWorkerIds.filter(id => id !== workerId)
-                  : [...task.assignedWorkerIds, workerId];
+                const newAssignedWorkerIds = isAssigned
+                    ? task.assignedWorkerIds.filter(id => id !== workerId)
+                    : [...task.assignedWorkerIds, workerId];
                 return { ...task, assignedWorkerIds: newAssignedWorkerIds };
-              }
-              return task;
-            }),
-          };
-        }
-        return wp;
-      })
+            })
+        }))
     );
   }, []);
 
-  const handleToggleSubTask = useCallback((packageId: string, taskId: string, subTaskId: string) => {
+  const handleToggleSubTask = useCallback((taskId: string, subTaskId: string) => {
     setWorkPackages(prevPackages =>
-        prevPackages.map(wp => {
-            if (wp.id !== packageId) return wp;
-            return {
-                ...wp,
-                tasks: wp.tasks.map(task => {
-                    if (task.id !== taskId) return task;
-                    return {
-                        ...task,
-                        subTasks: task.subTasks.map(st => {
-                            if (st.id !== subTaskId) return st;
-                            return { ...st, completed: !st.completed };
-                        })
-                    };
-                })
-            };
-        })
+        prevPackages.map(wp => ({
+            ...wp,
+            tasks: wp.tasks.map(task => {
+                if (task.id !== taskId) return task;
+                return {
+                    ...task,
+                    subTasks: task.subTasks.map(st => {
+                        if (st.id !== subTaskId) return st;
+                        return { ...st, completed: !st.completed };
+                    })
+                };
+            })
+        }))
     );
-}, []);
+  }, []);
 
   const handleDeleteWorkPackage = useCallback((packageId: string, packageTitle: string) => {
     if (window.confirm(`'${packageTitle}' başlıklı iş paketini silmek istediğinizden emin misiniz?`)) {
@@ -226,7 +205,7 @@ const App: React.FC = () => {
   };
 
   const handleExportData = () => {
-    const appState: AppState = { workPackages, workers, templates, airtableRecordId };
+    const appState: AppState = { workPackages, workers, templates };
     const dataStr = JSON.stringify(appState, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
@@ -265,7 +244,6 @@ const App: React.FC = () => {
           } else {
             setTemplates(INITIAL_TEMPLATES);
           }
-          setAirtableRecordId(data.airtableRecordId);
           alert("Veri başarıyla içe aktarıldı!");
         } else {
           throw new Error("Geçersiz dosya formatı.");
@@ -280,52 +258,36 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
   
-  const openAirtableModal = (action: 'sync' | 'fetch') => {
-    setAirtableAction(action);
+  const openAirtableModal = () => {
     setIsAirtableModalOpen(true);
+  };
+  
+  const handleAirFetch = async () => {
+    setIsAirtableFetchModalOpen(false);
+    setIsFetching(true);
+    try {
+      const { workPackages, workers } = await airFetch();
+      setWorkPackages(workPackages);
+      setWorkers(workers);
+      alert('Veriler başarıyla Airtable\'dan çekildi!');
+    } catch (error) {
+      alert(`Airtable'dan veri çekilirken bir hata oluştu: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsFetching(false);
+    }
   };
 
   const handleAirSync = async () => {
     setIsSyncing(true);
     try {
-      const appState: AppState = { workPackages, workers, templates, airtableRecordId };
-      const dataStr = JSON.stringify(appState);
-      const newRecordId = await airSync(dataStr, airtableRecordId);
-      setAirtableRecordId(newRecordId);
-      alert('Veri başarıyla Airtable\'a gönderildi!');
+      await airSync(workPackages, workers);
+      alert('Tüm görevler başarıyla Airtable\'a gönderildi!');
     } catch (error) {
       alert(`Airtable'a gönderilirken bir hata oluştu: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsSyncing(false);
     }
   };
-
-  const handleAirFetch = async () => {
-    // Confirmation is now handled by the modal
-    setIsFetching(true);
-    try {
-      const result = await airFetch();
-      if (result) {
-        const data = JSON.parse(result.data) as AppState;
-        if (Array.isArray(data.workPackages) && Array.isArray(data.workers)) {
-          setWorkPackages(data.workPackages);
-          setWorkers(data.workers);
-          setTemplates(data.templates || INITIAL_TEMPLATES);
-          setAirtableRecordId(result.recordId);
-          alert("Veri başarıyla Airtable'dan alındı!");
-        } else {
-          throw new Error("Airtable'dan gelen veri formatı geçersiz.");
-        }
-      } else {
-        alert("Airtable'da kayıt bulunamadı. Önce veri göndermeyi deneyin.");
-      }
-    } catch (error) {
-      alert(`Airtable'dan veri alınırken bir hata oluştu: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setIsFetching(false);
-    }
-  };
-
 
   const ongoingPackages = workPackages.filter(wp => wp.tasks.some(t => t.status !== TaskStatus.Completed));
   const completedPackages = workPackages.filter(wp => wp.tasks.every(t => t.status === TaskStatus.Completed));
@@ -337,13 +299,13 @@ const App: React.FC = () => {
             <div className="flex justify-between items-center py-4">
                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Şantiye Pomodoro</h1>
                  <div className="flex items-center gap-2">
-                    <button onClick={() => openAirtableModal('fetch')} disabled={isFetching} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
-                      <DatabaseIcon className="w-4 h-4" />
-                      <span>{isFetching ? 'Alınıyor...' : 'AirAl'}</span>
+                    <button onClick={() => setIsAirtableFetchModalOpen(true)} disabled={isFetching || isSyncing} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
+                        <DownloadIcon className="w-4 h-4" />
+                        <span>{isFetching ? 'Alınıyor...' : 'Airtable\'dan Al'}</span>
                     </button>
-                    <button onClick={() => openAirtableModal('sync')} disabled={isSyncing} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
+                    <button onClick={openAirtableModal} disabled={isSyncing || isFetching} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
                         <DatabaseIcon className="w-4 h-4" />
-                        <span>{isSyncing ? 'Veriliyor...' : 'AirVer'}</span>
+                        <span>{isSyncing ? 'Gönderiliyor...' : 'Airtable\'a Gönder'}</span>
                     </button>
                      <button onClick={handleImportClick} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors">
                         <UploadIcon className="w-4 h-4" />
@@ -389,20 +351,20 @@ const App: React.FC = () => {
       </header>
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {isAirtableModalOpen && airtableAction && (
+        {isAirtableModalOpen && (
           <AirtableInfoModal
-            action={airtableAction}
             onClose={() => setIsAirtableModalOpen(false)}
             onConfirm={() => {
               setIsAirtableModalOpen(false);
-              if (airtableAction === 'sync') {
-                handleAirSync();
-              } else if (airtableAction === 'fetch') {
-                if (window.confirm("Mevcut tüm verilerinizin üzerine Airtable'dan alınan veriler yazılacaktır. Devam etmek istiyor musunuz?")) {
-                   handleAirFetch();
-                }
-              }
+              handleAirSync();
             }}
+          />
+        )}
+        
+        {isAirtableFetchModalOpen && (
+          <AirtableFetchConfirmModal
+            onClose={() => setIsAirtableFetchModalOpen(false)}
+            onConfirm={handleAirFetch}
           />
         )}
 
@@ -419,12 +381,12 @@ const App: React.FC = () => {
                                 key={wp.id} 
                                 workPackage={wp}
                                 workers={workers}
-                                onUpdateTaskStatus={(taskId, status) => handleUpdateTaskStatus(wp.id, taskId, status)}
-                                onToggleTaskWorker={(taskId, workerId) => handleToggleTaskWorker(wp.id, taskId, workerId)}
-                                onToggleSubTask={(taskId, subTaskId) => handleToggleSubTask(wp.id, taskId, subTaskId)}
+                                onUpdateTaskStatus={handleUpdateTaskStatus}
+                                onToggleTaskWorker={handleToggleTaskWorker}
+                                onToggleSubTask={handleToggleSubTask}
                                 onDeletePackage={handleDeleteWorkPackage}
-                                onUpdateTaskDuration={(taskId, duration) => handleUpdateTaskDuration(wp.id, taskId, duration)}
-                                onUpdateTaskNotes={(taskId, notes) => handleUpdateTaskNotes(wp.id, taskId, notes)}
+                                onUpdateTaskDuration={handleUpdateTaskDuration}
+                                onUpdateTaskNotes={handleUpdateTaskNotes}
                             />
                         ))
                     ) : (
@@ -443,12 +405,12 @@ const App: React.FC = () => {
                                 key={wp.id} 
                                 workPackage={wp}
                                 workers={workers}
-                                onUpdateTaskStatus={(taskId, status) => handleUpdateTaskStatus(wp.id, taskId, status)}
-                                onToggleTaskWorker={(taskId, workerId) => handleToggleTaskWorker(wp.id, taskId, workerId)}
-                                onToggleSubTask={(taskId, subTaskId) => handleToggleSubTask(wp.id, taskId, subTaskId)}
+                                onUpdateTaskStatus={handleUpdateTaskStatus}
+                                onToggleTaskWorker={handleToggleTaskWorker}
+                                onToggleSubTask={handleToggleSubTask}
                                 onDeletePackage={handleDeleteWorkPackage}
-                                onUpdateTaskDuration={(taskId, duration) => handleUpdateTaskDuration(wp.id, taskId, duration)}
-                                onUpdateTaskNotes={(taskId, notes) => handleUpdateTaskNotes(wp.id, taskId, notes)}
+                                onUpdateTaskDuration={handleUpdateTaskDuration}
+                                onUpdateTaskNotes={handleUpdateTaskNotes}
                             />
                         ))
                     ) : (
