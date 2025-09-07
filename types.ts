@@ -8,6 +8,8 @@ export interface Worker {
   id: string;
   name: string;
   avatar: string;
+  company?: string;
+  position?: string;
 }
 
 export interface SubTask {
@@ -34,6 +36,8 @@ export interface WorkPackage {
   title: string;
   description: string;
   tasks: Task[];
+  company?: string;
+  companyFilter?: string;
 }
 
 export interface AppState {

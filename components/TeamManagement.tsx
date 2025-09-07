@@ -1,80 +1,437 @@
-import React, { useState } from 'react';
-import type { Worker } from '../types';
-import { TrashIcon, PencilIcon } from './icons';
+import React, { useState, useMemo, useEffect } from 'react';
+import type { Worker, WorkPackage, Task } from '../types';
+import { TaskStatus } from '../types';
+import { TrashIcon, PencilIcon, DatabaseIcon, DownloadIcon, AlertTriangleIcon, CopyIcon, PlusIcon, LoaderIcon, ClipboardCheckIcon } from './icons';
+
+// --- UTILITY FUNCTIONS FOR BRANDING ---
+const companyColors = [
+    '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981',
+    '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7',
+    '#d946ef', '#ec4899', '#f43f5e',
+];
+
+const stringToColor = (str: string): string => {
+  if (!str) return '#64748b'; // slate-500
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash % companyColors.length);
+  return companyColors[index];
+};
+
+const getInitials = (name: string): string => {
+    if (!name) return '?';
+    const words = name.split(' ').filter(Boolean);
+    if (words.length === 0) return '?';
+    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+};
+
+const CompanyLogo: React.FC<{ company?: string }> = ({ company }) => {
+    const [logoError, setLogoError] = useState(false);
+    const logoUrl = company ? `https://cebi.com.tr/foto/${company.replace(/\s+/g, '_')}.png` : '';
+
+    useEffect(() => {
+        setLogoError(false);
+    }, [company]);
+
+    if (!company) {
+        return <div className="w-10 h-10 flex-shrink-0" />;
+    }
+
+    if (logoError || !logoUrl) {
+        const bgColor = stringToColor(company);
+        const initials = getInitials(company);
+        return (
+            <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-sm flex-shrink-0"
+                style={{ backgroundColor: bgColor }}
+                title={company}
+            >
+                {initials}
+            </div>
+        );
+    }
+
+    return (
+        <img
+            src={logoUrl}
+            alt={`${company} logo`}
+            className="w-10 h-10 rounded-lg object-contain bg-white p-0.5 border border-slate-200"
+            onError={() => setLogoError(true)}
+        />
+    );
+};
+
+
+interface AirtableWorkerInfoModalProps {
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+const AirtableWorkerInfoModal: React.FC<AirtableWorkerInfoModalProps> = ({ onClose, onConfirm }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 border-b border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800">Airtable'a Personel Gönder</h3>
+        </div>
+        <div className="p-6 space-y-6">
+           <p className="text-base text-slate-600">
+             Personellerin Airtable'a doğru bir şekilde gönderilmesi için `PomoSablon` tablosunda aşağıdaki alanların oluşturulması gerekmektedir:
+            </p>
+            <ul className="list-decimal list-inside space-y-3 text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <li><strong>Table (Tablo):</strong> Base içinde `PomoSablon` adında bir tablo bulunmalıdır.</li>
+              <li>
+                <strong>Fields (Alanlar):</strong> Tablonuzda aşağıdaki alanları oluşturun:
+                <ul className="list-disc list-inside space-y-2 text-slate-600 mt-2 pl-6">
+                  <li>
+                    <code>Status</code> (Single Select) - Kaydın türünü belirtir.
+                    <div className="text-sm text-slate-500 mt-1 ml-4 p-2 bg-slate-100 rounded">
+                        Bu alanda <strong>personel</strong> ve <strong>task</strong> adında iki seçenek olmalıdır.
+                    </div>
+                  </li>
+                  <li><code>Personel</code> (Kısa metin) - Personelin adını saklar.</li>
+                  <li><code>PersonelID</code> (Kısa metin) - `cebi.com.tr/foto/ID.png` adresindeki fotoğraf ID'sini (örn: 15, random3) saklar.</li>
+                  <li><code>Company</code> (Kısa metin) - Personelin şirketini saklar.</li>
+                  <li><code>Company Logo</code> (URL) - (İsteğe bağlı) Şirket logosunun URL'sini saklar.</li>
+                  <li><code>Position</code> (Kısa metin) - Personelin statüsünü (örn: Şef, Usta) saklar.</li>
+                </ul>
+              </li>
+            </ul>
+          <div className="flex items-start gap-3 p-4 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg">
+            <AlertTriangleIcon className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+                <h5 className="font-semibold text-amber-800">Önemli Uyarı</h5>
+                <p className="text-sm text-amber-700">Bu işlem, Airtable'daki 'PomoSablon' tablosunda `Status` alanı `personel` olan tüm mevcut kayıtları silecek ve güncel personel listesini yeniden oluşturacaktır. Bu işlem şablon verilerinizi etkilemez.</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">İptal</button>
+          <button onClick={onConfirm} className="px-4 py-2 text-base font-bold text-white rounded-lg transition-colors bg-blue-600 hover:bg-blue-700">Onayla ve Gönder</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface AirtableWorkerFetchConfirmModalProps {
+    onClose: () => void;
+    onConfirm: () => void;
+}
+
+const AirtableWorkerFetchConfirmModal: React.FC<AirtableWorkerFetchConfirmModalProps> = ({ onClose, onConfirm }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 border-b border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800">Airtable'dan Personel Al</h3>
+        </div>
+        <div className="p-6">
+          <div className="flex items-start gap-3 p-4 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg">
+            <AlertTriangleIcon className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <h5 className="font-semibold text-amber-800">Onay Gerekiyor</h5>
+              <p className="text-base text-amber-700">
+                Bu işlem, Airtable'daki personel verilerini çekecek ve mevcut tüm yerel personel listenizin üzerine yazacaktır. Bu işlem geri alınamaz. Devam etmek istediğinizden emin misiniz?
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">İptal</button>
+          <button onClick={onConfirm} className="px-4 py-2 text-base font-bold text-white rounded-lg transition-colors bg-blue-600 hover:bg-blue-700">Onayla ve Al</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface AddWorkerModalProps {
+    onClose: () => void;
+    onAddWorker: (name: string, company?: string, position?: string) => void;
+}
+
+const AddWorkerModal: React.FC<AddWorkerModalProps> = ({ onClose, onAddWorker }) => {
+    const [name, setName] = useState('');
+    const [company, setCompany] = useState('');
+    const [position, setPosition] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (name.trim()) {
+            onAddWorker(name.trim(), company.trim() || undefined, position.trim() || undefined);
+            onClose();
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                <h3 className="text-lg font-bold text-slate-800 p-6 border-b border-slate-200">Yeni Personel Ekle</h3>
+                <div className="p-6 space-y-4">
+                    <div>
+                        <label htmlFor="new-worker-name" className="block text-base font-medium text-slate-700 mb-1">Personel Adı</label>
+                        <input
+                            id="new-worker-name"
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                            placeholder="Örn: Zeynep Güneş"
+                            required
+                            autoFocus
+                        />
+                    </div>
+                     <div>
+                        <label htmlFor="new-worker-company" className="block text-base font-medium text-slate-700 mb-1">Şirket (İsteğe Bağlı)</label>
+                        <input
+                            id="new-worker-company"
+                            type="text"
+                            value={company}
+                            onChange={(e) => setCompany(e.target.value)}
+                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                            placeholder="Örn: İnşaat A.Ş."
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="new-worker-position" className="block text-base font-medium text-slate-700 mb-1">Statü (İsteğe Bağlı)</label>
+                        <input
+                            id="new-worker-position"
+                            type="text"
+                            value={position}
+                            onChange={(e) => setPosition(e.target.value)}
+                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                            placeholder="Örn: Şef, Usta, Yardımcı"
+                        />
+                    </div>
+                </div>
+                <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                    <button onClick={onClose} type="button" className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">
+                        İptal
+                    </button>
+                    <button type="submit" className="inline-flex items-center gap-2 px-4 py-2 text-base font-bold text-white rounded-lg transition-colors bg-blue-600 hover:bg-blue-700">
+                        <PlusIcon className="w-5 h-5" />
+                        Ekle
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+};
+
+const WorkerTooltip: React.FC<{ workerId: string, workPackages: WorkPackage[] }> = ({ workerId, workPackages }) => {
+  const activeTasks = useMemo(() => {
+    const tasks: { title: string; startTime: number }[] = [];
+    workPackages.forEach(wp => {
+      wp.tasks.forEach(task => {
+        if (task.status === TaskStatus.Active && task.assignedWorkerIds.includes(workerId) && task.startTime) {
+          tasks.push({ title: task.title, startTime: task.startTime });
+        }
+      });
+    });
+    return tasks;
+  }, [workerId, workPackages]);
+
+  if (activeTasks.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max max-w-xs p-3 bg-slate-800 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 group-hover:delay-1000 transition-opacity duration-300 z-10 pointer-events-none">
+      <h4 className="font-bold border-b border-slate-600 pb-1 mb-1">Aktif Görevler</h4>
+      <ul className="space-y-1">
+        {activeTasks.map((task, index) => (
+          <li key={index} className="truncate">
+            <strong>{task.title}</strong> - {new Date(task.startTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+          </li>
+        ))}
+      </ul>
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-[-4px] w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-800"></div>
+    </div>
+  );
+};
+
 
 interface TeamManagementProps {
   workers: Worker[];
-  onAddWorker: (name: string) => void;
+  workPackages: WorkPackage[];
+  onAddWorker: (name: string, company?: string, position?: string) => void;
   onDeleteWorker: (workerId: string, workerName: string) => void;
   onEditWorker: (workerId: string) => void;
+  onCopyWorker: (workerId: string) => void;
+  onAirSync: () => void;
+  onAirFetch: () => void;
+  isSyncing: boolean;
+  isFetching: boolean;
 }
 
-const TeamManagement: React.FC<TeamManagementProps> = ({ workers, onAddWorker, onDeleteWorker, onEditWorker }) => {
-  const [newWorkerName, setNewWorkerName] = useState('');
+const TeamManagement: React.FC<TeamManagementProps> = ({ workers, workPackages, onAddWorker, onDeleteWorker, onEditWorker, onCopyWorker, onAirSync, onAirFetch, isSyncing, isFetching }) => {
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [isFetchConfirmOpen, setIsFetchConfirmOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const handleAddWorker = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newWorkerName.trim()) {
-      onAddWorker(newWorkerName.trim());
-      setNewWorkerName('');
-    }
+  const handleConfirmSync = () => {
+    setIsInfoModalOpen(false);
+    onAirSync();
   };
+
+  const handleConfirmFetch = () => {
+    setIsFetchConfirmOpen(false);
+    onAirFetch();
+  };
+  
+  const getPhotoId = (avatarUrl: string): string => {
+      const match = avatarUrl.match(/cebi\.com\.tr\/foto\/(.+)\.png$/);
+      return match ? match[1] : '';
+  };
+  
+  const workerTaskCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    workers.forEach(w => counts.set(w.id, 0));
+    workPackages.forEach(wp => {
+        wp.tasks.forEach(task => {
+            if (task.status === TaskStatus.Active) {
+                task.assignedWorkerIds.forEach(workerId => {
+                    counts.set(workerId, (counts.get(workerId) || 0) + 1);
+                });
+            }
+        });
+    });
+    return counts;
+  }, [workPackages, workers]);
+
+  const sortedAndFilteredWorkers = useMemo(() => {
+    const lowercasedFilter = searchTerm.toLowerCase();
+    
+    let filtered = workers;
+    if (lowercasedFilter) {
+      filtered = workers.filter(worker =>
+          worker.name.toLowerCase().includes(lowercasedFilter) ||
+          (worker.company && worker.company.toLowerCase().includes(lowercasedFilter)) ||
+          getPhotoId(worker.avatar).toLowerCase().includes(lowercasedFilter)
+      );
+    }
+    
+    return filtered.sort((a, b) => {
+        const countA = workerTaskCounts.get(a.id) || 0;
+        const countB = workerTaskCounts.get(b.id) || 0;
+        return countB - countA;
+    });
+  }, [workers, searchTerm, workerTaskCounts]);
+
 
   return (
     <div className="space-y-8">
-      {/* Add Worker Form */}
+      {isInfoModalOpen && <AirtableWorkerInfoModal onClose={() => setIsInfoModalOpen(false)} onConfirm={handleConfirmSync} />}
+      {isFetchConfirmOpen && <AirtableWorkerFetchConfirmModal onClose={() => setIsFetchConfirmOpen(false)} onConfirm={handleConfirmFetch} />}
+      {isAddModalOpen && <AddWorkerModal onClose={() => setIsAddModalOpen(false)} onAddWorker={onAddWorker} />}
+      
+      {/* Management Card */}
       <div className="p-6 bg-white border border-slate-200 rounded-xl shadow-md">
-        <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-4">Yeni Personel Ekle</h2>
-        <form onSubmit={handleAddWorker} className="flex items-center gap-4">
-          <div className="flex-grow">
-            <label htmlFor="worker-name" className="sr-only">Personel Adı</label>
+        <div className="flex flex-wrap gap-4 justify-between items-center mb-4">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800">Ekip Yönetimi</h2>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setIsFetchConfirmOpen(true)} disabled={isFetching || isSyncing} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
+              {isFetching ? <LoaderIcon className="w-4 h-4" /> : <DownloadIcon className="w-4 h-4" />}
+              <span>{isFetching ? 'Alınıyor...' : 'Airtable\'dan Al'}</span>
+            </button>
+            <button onClick={() => setIsInfoModalOpen(true)} disabled={isSyncing || isFetching} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
+              {isSyncing ? <LoaderIcon className="w-4 h-4" /> : <DatabaseIcon className="w-4 h-4" />}
+              <span>{isSyncing ? 'Gönderiliyor...' : 'Airtable\'a Gönder'}</span>
+            </button>
+          </div>
+        </div>
+        <p className="text-base text-slate-500">Yeni personel ekleyin veya mevcut personelleri düzenleyin. Personel listenizi Airtable ile senkronize edebilirsiniz.</p>
+      </div>
+      
+      {/* Search and Add Controls */}
+      <div className="p-6 bg-white border border-slate-200 rounded-xl shadow-md">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex-grow relative">
+            <label htmlFor="worker-search" className="sr-only">Personel Ara</label>
             <input
               type="text"
-              id="worker-name"
-              value={newWorkerName}
-              onChange={(e) => setNewWorkerName(e.target.value)}
-              className="block w-full px-4 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
-              placeholder="Örn: Zeynep Güneş"
-              required
+              id="worker-search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="block w-full px-4 py-2 pr-10 bg-green-50 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base text-slate-900 font-bold"
+              placeholder="Personel adı, şirket veya ID'ye göre ara..."
             />
+             {searchTerm && (
+                <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                    aria-label="Aramayı temizle"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            )}
           </div>
           <button
-            type="submit"
-            className="px-6 py-2 text-base font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-slate-400"
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-base font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Ekle
+            <PlusIcon className="w-5 h-5" />
+            Yeni Personel Ekle
           </button>
-        </form>
+        </div>
       </div>
 
       {/* Worker List */}
       <div className="p-6 bg-white border border-slate-200 rounded-xl shadow-md">
-        <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-4">Mevcut Ekip Üyeleri</h2>
-        {workers.length > 0 ? (
+        <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-4">Mevcut Ekip Üyeleri ({sortedAndFilteredWorkers.length})</h2>
+        {sortedAndFilteredWorkers.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {workers.map(worker => (
-              <div key={worker.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
-                <div className="flex items-center gap-3">
-                  <img src={worker.avatar} alt={worker.name} className="w-20 h-20 rounded-full object-cover" />
-                  <span className="font-medium text-base text-slate-700">{worker.name}</span>
+            {sortedAndFilteredWorkers.map(worker => {
+              const taskCount = workerTaskCounts.get(worker.id) || 0;
+              return (
+                <div key={worker.id} className="group relative flex flex-col justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                   <WorkerTooltip workerId={worker.id} workPackages={workPackages} />
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                    <img src={worker.avatar} alt={worker.name} className="w-16 h-16 rounded-full object-cover flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-base text-slate-800 truncate">{worker.name}</p>
+                      <p className="text-sm font-medium text-teal-600 truncate">{worker.position || 'Statü Belirtilmemiş'}</p>
+                       <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-200">
+                        <CompanyLogo company={worker.company} />
+                        <p className="text-sm text-slate-500 truncate">{worker.company || 'Şirket belirtilmemiş'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <div title={`${taskCount} aktif görevde`} className={`flex items-center gap-1.5 text-sm ${taskCount > 0 ? 'text-blue-600 font-semibold' : 'text-slate-500'}`}>
+                        <ClipboardCheckIcon className="w-4 h-4" />
+                        <span>{taskCount}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <button onClick={() => onCopyWorker(worker.id)} className="p-2 text-slate-400 hover:text-green-500 hover:bg-green-100 rounded-full" aria-label={`${worker.name} adlı personeli kopyala`}>
+                        <CopyIcon className="w-5 h-5" />
+                      </button>
+                      <button onClick={() => onEditWorker(worker.id)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-100 rounded-full" aria-label={`${worker.name} adlı personeli düzenle`}>
+                        <PencilIcon className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => onDeleteWorker(worker.id, worker.name)}
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded-full"
+                        aria-label={`${worker.name} adlı personeli sil`}
+                      >
+                        <TrashIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center">
-                  <button onClick={() => onEditWorker(worker.id)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-100 rounded-full" aria-label={`${worker.name} adlı personeli düzenle`}>
-                    <PencilIcon className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => onDeleteWorker(worker.id, worker.name)}
-                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded-full"
-                    aria-label={`${worker.name} adlı personeli sil`}
-                  >
-                    <TrashIcon className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
-          <p className="text-center text-slate-500 py-4">Ekip üyesi bulunmuyor.</p>
+          <p className="text-center text-slate-500 py-4">
+            {searchTerm ? 'Arama kriterlerine uyan personel bulunamadı.' : 'Ekip üyesi bulunmuyor.'}
+          </p>
         )}
       </div>
     </div>

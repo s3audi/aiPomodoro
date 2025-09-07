@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { WorkPackage, Worker, AppState, WorkPackageTemplate, Task } from './types';
 import { TaskStatus } from './types';
@@ -10,11 +9,12 @@ import TeamManagement from './components/TeamManagement';
 import TemplateSelector from './components/TemplateSelector';
 import TemplateManagement from './components/TemplateManagement';
 import { UploadIcon, DownloadIcon, UsersIcon, PackageIcon, ClipboardListIcon, DatabaseIcon, ZapIcon, SaveIcon, RotateCcwIcon } from './components/icons';
-import { airSync, airFetch, airSyncTemplates, airFetchTemplates } from './services/airtableService';
+import { airSync, airFetch, airSyncTemplates, airFetchTemplates, airSyncWorkers, airFetchWorkers } from './services/airtableService';
 import AirtableInfoModal from './components/AirtableInfoModal';
 import AirtableFetchConfirmModal from './components/AirtableFetchConfirmModal';
 import ConfirmModal from './components/ConfirmModal';
 import ActiveTasksView from './components/ActiveTasksView';
+import Toast from './components/Toast';
 
 type View = 'packages' | 'activeTasks' | 'team' | 'templates';
 type DeleteTarget = { type: 'package' | 'worker' | 'template'; id: string; name: string };
@@ -24,21 +24,29 @@ interface WorkerEditModalProps {
   isOpen: boolean;
   worker: Worker | null;
   onClose: () => void;
-  onSave: (workerId: string, newName: string, newAvatar: string) => void;
+  onSave: (workerId: string, newName: string, newAvatar: string, newCompany?: string, newPosition?: string) => void;
 }
 
 const WorkerEditModal: React.FC<WorkerEditModalProps> = ({ isOpen, worker, onClose, onSave }) => {
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState('');
   const [photoId, setPhotoId] = useState('');
+  const [company, setCompany] = useState('');
+  const [position, setPosition] = useState('');
 
   useEffect(() => {
     if (worker) {
       setName(worker.name);
       setAvatar(worker.avatar);
-      const match = worker.avatar.match(/foto\/(\d+)\.png/);
+      setCompany(worker.company || '');
+      setPosition(worker.position || '');
+      const match = worker.avatar.match(/cebi\.com\.tr\/foto\/(.+)\.png/);
       if (match && match[1]) {
-        setPhotoId(match[1]);
+        if (match[1].startsWith('random')) {
+           setPhotoId(match[1]);
+        } else {
+           setPhotoId(match[1]);
+        }
       } else {
         setPhotoId('');
       }
@@ -46,7 +54,7 @@ const WorkerEditModal: React.FC<WorkerEditModalProps> = ({ isOpen, worker, onClo
   }, [worker]);
 
   useEffect(() => {
-      if (photoId.trim() !== '' && /^\d+$/.test(photoId.trim())) {
+      if (photoId.trim() !== '') {
           const newAvatarUrl = `https://cebi.com.tr/foto/${photoId.trim()}.png`;
           setAvatar(newAvatarUrl);
       }
@@ -56,16 +64,14 @@ const WorkerEditModal: React.FC<WorkerEditModalProps> = ({ isOpen, worker, onClo
 
   const handleSave = () => {
     if (name.trim()) {
-      onSave(worker.id, name.trim(), avatar);
+      onSave(worker.id, name.trim(), avatar, company.trim(), position.trim());
     }
   };
 
   const handleRefreshAvatar = () => {
-    const isIdEmpty = photoId.trim() === '';
-    const randomNumber = isIdEmpty
-      ? Math.floor(Math.random() * 11) + 1  // 1-11 for new avatars
-      : Math.floor(Math.random() * 22) + 1; // 1-22 for existing ones
-    setPhotoId(String(randomNumber));
+    const randomNumber = Math.floor(Math.random() * 11) + 1;
+    const randomId = `random${randomNumber}`;
+    setPhotoId(randomId);
   };
 
   return (
@@ -93,22 +99,43 @@ const WorkerEditModal: React.FC<WorkerEditModalProps> = ({ isOpen, worker, onClo
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
                         />
                     </div>
-                    <div>
-                        <label htmlFor="worker-photo-id" className="block text-base font-medium text-slate-700 mb-1">Personel Fotoğraf ID</label>
+                     <div>
+                        <label htmlFor="worker-edit-company" className="block text-base font-medium text-slate-700 mb-1">Şirket</label>
                         <input
-                            id="worker-photo-id"
+                            id="worker-edit-company"
                             type="text"
-                            value={photoId}
-                            onChange={(e) => setPhotoId(e.target.value)}
-                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
-                            placeholder="Örn: 15"
-                            inputMode="numeric"
+                            value={company}
+                            onChange={(e) => setCompany(e.target.value)}
+                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                            placeholder="Örn: İnşaat A.Ş."
                         />
                     </div>
                 </div>
+            </div>
+            <div>
+              <label htmlFor="worker-edit-position" className="block text-base font-medium text-slate-700 mb-1">Statü</label>
+              <input
+                  id="worker-edit-position"
+                  type="text"
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value)}
+                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                  placeholder="Örn: Şef, Usta, Yardımcı"
+              />
+            </div>
+             <div className="pt-2">
+                <label htmlFor="worker-photo-id" className="block text-base font-medium text-slate-700 mb-1">Personel Fotoğraf ID</label>
+                <input
+                    id="worker-photo-id"
+                    type="text"
+                    value={photoId}
+                    onChange={(e) => setPhotoId(e.target.value)}
+                    className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                    placeholder="Örn: 15 veya random3"
+                />
             </div>
         </div>
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
@@ -141,6 +168,13 @@ const App: React.FC = () => {
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [isSyncingTemplates, setIsSyncingTemplates] = useState(false);
   const [isFetchingTemplates, setIsFetchingTemplates] = useState(false);
+  const [isSyncingWorkers, setIsSyncingWorkers] = useState(false);
+  const [isFetchingWorkers, setIsFetchingWorkers] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+  };
 
 
   const handleCreatePackage = useCallback((newPackage: WorkPackage) => {
@@ -178,6 +212,7 @@ const App: React.FC = () => {
         })),
     };
     setWorkPackages(prev => [newPackage, ...prev]);
+    showToast(`'${template.title}' şablonundan paket oluşturuldu!`, 'success');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [workers]);
   
@@ -311,22 +346,63 @@ const App: React.FC = () => {
     setDeleteTarget({ type: 'package', id: packageId, name: packageTitle });
   }, []);
 
+  const handleUpdateWorkPackageCompanyFilter = useCallback((packageId: string, company: string) => {
+    setWorkPackages(prev => {
+        const newPackages = [...prev];
+        const wpIndex = newPackages.findIndex(wp => wp.id === packageId);
+        if (wpIndex === -1) return prev;
+        
+        const companyFilter = company === 'all' ? undefined : company;
+        newPackages[wpIndex].companyFilter = companyFilter;
 
-  const handleAddWorker = useCallback((name: string) => {
+        // Smart Assignment Logic
+        if (companyFilter) {
+            const chief = workers.find(w => w.company === companyFilter && w.position === 'Şef');
+            if (chief) {
+                newPackages[wpIndex].tasks = newPackages[wpIndex].tasks.map(task => {
+                    // Assign only if the task has no one assigned
+                    if (task.assignedWorkerIds.length === 0) {
+                        return { ...task, assignedWorkerIds: [chief.id] };
+                    }
+                    return task;
+                });
+            }
+        }
+        return newPackages;
+    });
+  }, [workers]);
+
+
+  const handleAddWorker = useCallback((name: string, company?: string, position?: string) => {
     const workerId = `w-${Date.now()}`;
-    const randomNumber = Math.floor(Math.random() * 22) + 1;
+    const randomNumber = Math.floor(Math.random() * 11) + 1;
     const newWorker: Worker = {
       id: workerId,
       name,
-      avatar: `https://cebi.com.tr/foto/${randomNumber}.png`
+      avatar: `https://cebi.com.tr/foto/random${randomNumber}.png`,
+      company: company,
+      position: position,
     };
     setWorkers(prev => [...prev, newWorker]);
   }, []);
   
-  const handleUpdateWorker = useCallback((workerId: string, newName: string, newAvatar: string) => {
-    setWorkers(prev => prev.map(w => w.id === workerId ? { ...w, name: newName, avatar: newAvatar } : w));
+  const handleUpdateWorker = useCallback((workerId: string, newName: string, newAvatar: string, newCompany?: string, newPosition?: string) => {
+    setWorkers(prev => prev.map(w => w.id === workerId ? { ...w, name: newName, avatar: newAvatar, company: newCompany, position: newPosition } : w));
     setEditingWorker(null);
   }, []);
+  
+  const handleCopyWorker = useCallback((workerId: string) => {
+    const workerToCopy = workers.find(w => w.id === workerId);
+    if (!workerToCopy) return;
+
+    const newWorker: Worker = {
+        ...workerToCopy,
+        id: `w-${Date.now()}`,
+        name: `${workerToCopy.name} (Kopya)`,
+    };
+    setWorkers(prev => [...prev, newWorker]);
+  }, [workers]);
+
 
   const handleStartEditWorker = useCallback((workerId: string) => {
     const workerToEdit = workers.find(w => w.id === workerId);
@@ -376,6 +452,7 @@ const App: React.FC = () => {
       setTemplates(prev => prev.filter(t => t.id !== id));
     }
 
+    showToast(`'${deleteTarget.name}' başarıyla silindi.`, 'success');
     setDeleteTarget(null);
   };
 
@@ -394,6 +471,7 @@ const App: React.FC = () => {
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
+    showToast('Veriler başarıyla dışa aktarıldı!', 'success');
   };
 
   const handleImportClick = () => {
@@ -423,13 +501,13 @@ const App: React.FC = () => {
           } else {
             setTemplates(INITIAL_TEMPLATES);
           }
-          alert("Veri başarıyla içe aktarıldı!");
+          showToast("Veri başarıyla içe aktarıldı!", 'success');
         } else {
           throw new Error("Geçersiz dosya formatı.");
         }
       } catch (error) {
         console.error("İçe aktarma hatası:", error);
-        alert("Veri içe aktarılırken bir hata oluştu. Lütfen dosyanın doğru formatta olduğundan emin olun.");
+        showToast("Veri içe aktarılırken bir hata oluştu.", 'error');
       } finally {
         if(fileInputRef.current) fileInputRef.current.value = "";
       }
@@ -448,9 +526,9 @@ const App: React.FC = () => {
       const { workPackages, workers } = await airFetch();
       setWorkPackages(workPackages);
       setWorkers(workers);
-      alert('Veriler başarıyla Airtable\'dan çekildi!');
+      showToast('Veriler başarıyla Airtable\'dan çekildi!', 'success');
     } catch (error) {
-      alert(`Airtable'dan veri çekilirken bir hata oluştu: ${error instanceof Error ? error.message : String(error)}`);
+      showToast(`Airtable'dan veri çekilirken hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
     } finally {
       setIsFetching(false);
     }
@@ -460,9 +538,9 @@ const App: React.FC = () => {
     setIsSyncing(true);
     try {
       await airSync(workPackages, workers);
-      alert('Tüm görevler başarıyla Airtable\'a gönderildi!');
+      showToast('Tüm görevler başarıyla Airtable\'a gönderildi!', 'success');
     } catch (error) {
-      alert(`Airtable'a gönderilirken bir hata oluştu: ${error instanceof Error ? error.message : String(error)}`);
+      showToast(`Airtable'a gönderilirken hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -473,9 +551,9 @@ const App: React.FC = () => {
     try {
       const fetchedTemplates = await airFetchTemplates();
       setTemplates(fetchedTemplates);
-      alert('Şablonlar başarıyla Airtable\'dan çekildi!');
+      showToast('Şablonlar başarıyla Airtable\'dan çekildi!', 'success');
     } catch (error) {
-      alert(`Airtable'dan şablon çekilirken bir hata oluştu: ${error instanceof Error ? error.message : String(error)}`);
+      showToast(`Airtable'dan şablon çekilirken hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
     } finally {
       setIsFetchingTemplates(false);
     }
@@ -485,20 +563,47 @@ const App: React.FC = () => {
     setIsSyncingTemplates(true);
     try {
       await airSyncTemplates(templates);
-      alert('Şablonlar başarıyla Airtable\'a gönderildi!');
+      showToast('Şablonlar başarıyla Airtable\'a gönderildi!', 'success');
     } catch (error) {
-      alert(`Airtable'a şablon gönderilirken bir hata oluştu: ${error instanceof Error ? error.message : String(error)}`);
+      showToast(`Airtable'a şablon gönderilirken hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
     } finally {
       setIsSyncingTemplates(false);
+    }
+  };
+
+  const handleAirFetchWorkers = async () => {
+    setIsFetchingWorkers(true);
+    try {
+      const fetchedWorkers = await airFetchWorkers();
+      setWorkers(fetchedWorkers);
+      showToast('Personel listesi başarıyla Airtable\'dan çekildi!', 'success');
+    } catch (error) {
+      showToast(`Airtable'dan personel çekilirken hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
+    } finally {
+      setIsFetchingWorkers(false);
+    }
+  };
+
+  const handleAirSyncWorkers = async () => {
+    setIsSyncingWorkers(true);
+    try {
+      await airSyncWorkers(workers);
+      showToast('Personel listesi başarıyla Airtable\'a gönderildi!', 'success');
+    } catch (error) {
+      showToast(`Airtable'a personel gönderilirken hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
+    } finally {
+      setIsSyncingWorkers(false);
     }
   };
 
 
   const ongoingPackages = workPackages.filter(wp => wp.tasks.some(t => t.status !== TaskStatus.Completed));
   const completedPackages = workPackages.filter(wp => wp.tasks.every(t => t.status === TaskStatus.Completed));
+  const activeTaskCount = workPackages.flatMap(wp => wp.tasks).filter(t => t.status === TaskStatus.Active).length;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
@@ -539,10 +644,15 @@ const App: React.FC = () => {
                 </button>
                 <button 
                     onClick={() => setCurrentView('activeTasks')}
-                    className={`flex items-center gap-2 px-4 py-3 text-base font-semibold border-b-2 transition-colors ${currentView === 'activeTasks' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                    className={`relative flex items-center gap-2 px-4 py-3 text-base font-semibold border-b-2 transition-colors ${currentView === 'activeTasks' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                 >
                     <ZapIcon className="w-5 h-5"/>
                     Aktif Görevler
+                    {activeTaskCount > 0 && (
+                        <span className="absolute top-1.5 right-0 flex items-center justify-center w-5 h-5 bg-blue-500 text-white text-xs font-bold rounded-full">
+                            {activeTaskCount}
+                        </span>
+                    )}
                 </button>
                 <button 
                     onClick={() => setCurrentView('team')}
@@ -601,7 +711,7 @@ const App: React.FC = () => {
 
         {currentView === 'packages' && (
             <>
-                 <WorkPackageCreator onCreatePackage={handleCreatePackage} />
+                 <WorkPackageCreator onCreatePackage={handleCreatePackage} showToast={showToast} />
                  <TemplateSelector templates={templates} onSelectTemplate={handleCreatePackageFromTemplate} />
 
                 <div className="mt-10">
@@ -619,6 +729,7 @@ const App: React.FC = () => {
                                 onUpdateTaskDuration={handleUpdateTaskDuration}
                                 onUpdateTaskNotes={handleUpdateTaskNotes}
                                 onEditWorker={handleStartEditWorker}
+                                onUpdateCompanyFilter={handleUpdateWorkPackageCompanyFilter}
                             />
                         ))
                     ) : (
@@ -644,6 +755,7 @@ const App: React.FC = () => {
                                 onUpdateTaskDuration={handleUpdateTaskDuration}
                                 onUpdateTaskNotes={handleUpdateTaskNotes}
                                 onEditWorker={handleStartEditWorker}
+                                onUpdateCompanyFilter={handleUpdateWorkPackageCompanyFilter}
                             />
                         ))
                     ) : (
@@ -669,9 +781,15 @@ const App: React.FC = () => {
         {currentView === 'team' && (
             <TeamManagement
                 workers={workers}
+                workPackages={workPackages}
                 onAddWorker={handleAddWorker}
                 onDeleteWorker={handleDeleteWorker}
                 onEditWorker={handleStartEditWorker}
+                onCopyWorker={handleCopyWorker}
+                onAirSync={handleAirSyncWorkers}
+                onAirFetch={handleAirFetchWorkers}
+                isSyncing={isSyncingWorkers}
+                isFetching={isFetchingWorkers}
             />
         )}
         {currentView === 'templates' && (

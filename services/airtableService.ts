@@ -39,6 +39,35 @@ const formatToLocalISOWithoutTimezone = (timestamp: number): string => {
            `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 };
 
+// Helper to fetch all records from a table, handling pagination, with an optional filter.
+const fetchAllRecords = async (apiUrl: string, filterByFormula?: string): Promise<any[]> => {
+  let allRecords: any[] = [];
+  let offset: string | undefined;
+  const url = new URL(apiUrl);
+  if (filterByFormula) {
+      url.searchParams.append('filterByFormula', filterByFormula);
+  }
+
+  do {
+    if (offset) {
+      url.searchParams.set('offset', offset);
+    } else {
+      url.searchParams.delete('offset');
+    }
+    const response = await fetch(url.toString(), { headers });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'Airtable fetch failed');
+    }
+    const page = await response.json();
+    allRecords = allRecords.concat(page.records);
+    offset = page.offset;
+  } while (offset);
+
+  return allRecords;
+};
+
+
 // Deletes records in batches of 10
 const deleteRecords = async (recordIds: string[], apiUrl: string) => {
   for (let i = 0; i < recordIds.length; i += 10) {
@@ -76,13 +105,8 @@ const createRecords = async (records: any[], apiUrl: string) => {
 export const airSync = async (workPackages: WorkPackage[], workers: Worker[]): Promise<void> => {
   try {
     // 1. Fetch all existing records to get their IDs for deletion
-    const fetchResponse = await fetch(API_URL, { headers });
-    if (!fetchResponse.ok) {
-      const error = await fetchResponse.json();
-      throw new Error(error.error?.message || 'Airtable fetch for deletion failed');
-    }
-    const existingRecords = await fetchResponse.json();
-    const recordIdsToDelete: string[] = existingRecords.records.map((r: any) => r.id);
+    const existingRecords = await fetchAllRecords(API_URL);
+    const recordIdsToDelete: string[] = existingRecords.map((r: any) => r.id);
 
     // 2. Delete all existing records
     if (recordIdsToDelete.length > 0) {
@@ -113,6 +137,7 @@ export const airSync = async (workPackages: WorkPackage[], workers: Worker[]): P
         newRecords.push({
           fields: {
             'Work Package': wp.title,
+            'Company': wp.company || null,
             'Task Title': task.title, // Primary field
             'Status': statusMap[task.status],
             'Duration': task.durationSeconds ? task.durationSeconds / 60 : undefined,
@@ -139,30 +164,28 @@ export const airSync = async (workPackages: WorkPackage[], workers: Worker[]): P
 
 export const airFetch = async (): Promise<{ workPackages: WorkPackage[], workers: Worker[] }> => {
   try {
-    const response = await fetch(API_URL, { headers });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Airtable fetch failed');
-    }
-    const { records } = await response.json();
+    const records = await fetchAllRecords(API_URL);
 
-    const workPackagesMap = new Map<string, WorkPackage>();
+    const workPackagesMap = new Map<string, WorkPackage>(); // Key: "title|company"
     const workersMap = new Map<string, Worker>(); // Map name to Worker object
 
     for (const record of records) {
       const fields = record.fields;
       const wpTitle = fields['Work Package'] || 'İsimsiz İş Paketi';
+      const wpCompany = fields['Company'] || undefined;
+      const wpKey = `${wpTitle}|${wpCompany || ''}`;
 
       // Ensure work package exists
-      if (!workPackagesMap.has(wpTitle)) {
-        workPackagesMap.set(wpTitle, {
+      if (!workPackagesMap.has(wpKey)) {
+        workPackagesMap.set(wpKey, {
           id: `wp-fetch-${Date.now()}-${workPackagesMap.size}`,
           title: wpTitle,
           description: '', // NOTE: Airtable schema doesn't store WP description.
+          company: wpCompany,
           tasks: [],
         });
       }
-      const workPackage = workPackagesMap.get(wpTitle)!;
+      const workPackage = workPackagesMap.get(wpKey)!;
 
       // Parse workers
       const assignedWorkerIds: string[] = [];
@@ -239,13 +262,8 @@ export const airFetch = async (): Promise<{ workPackages: WorkPackage[], workers
 
 export const airSyncTemplates = async (templates: WorkPackageTemplate[]): Promise<void> => {
   try {
-    const fetchResponse = await fetch(TEMPLATE_API_URL, { headers });
-     if (!fetchResponse.ok) {
-      const error = await fetchResponse.json();
-      throw new Error(error.error?.message || 'Airtable fetch for deletion failed');
-    }
-    const existingRecords = await fetchResponse.json();
-    const recordIdsToDelete: string[] = existingRecords.records.map((r: any) => r.id);
+    const existingRecords = await fetchAllRecords(TEMPLATE_API_URL, "({Status} = 'task')");
+    const recordIdsToDelete: string[] = existingRecords.map((r: any) => r.id);
 
     if (recordIdsToDelete.length > 0) {
       await deleteRecords(recordIdsToDelete, TEMPLATE_API_URL);
@@ -260,6 +278,7 @@ export const airSyncTemplates = async (templates: WorkPackageTemplate[]): Promis
 
       return {
         fields: {
+          'Status': 'task',
           'Template Title': template.title,
           'Description': template.description,
           'Tasks': tasksString,
@@ -279,12 +298,7 @@ export const airSyncTemplates = async (templates: WorkPackageTemplate[]): Promis
 
 export const airFetchTemplates = async (): Promise<WorkPackageTemplate[]> => {
   try {
-    const response = await fetch(TEMPLATE_API_URL, { headers });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Airtable fetch failed');
-    }
-    const { records } = await response.json();
+    const records = await fetchAllRecords(TEMPLATE_API_URL, "({Status} = 'task')");
 
     return records.map((record: any, index: number): WorkPackageTemplate => {
       const fields = record.fields;
@@ -317,6 +331,77 @@ export const airFetchTemplates = async (): Promise<WorkPackageTemplate[]> => {
     });
   } catch (error) {
     console.error('Error fetching templates from Airtable:', error);
+    throw error;
+  }
+};
+
+export const airSyncWorkers = async (workers: Worker[]): Promise<void> => {
+  try {
+    const existingRecords = await fetchAllRecords(TEMPLATE_API_URL, "({Status} = 'personel')");
+    const recordIdsToDelete: string[] = existingRecords.map((r: any) => r.id);
+
+    if (recordIdsToDelete.length > 0) {
+      await deleteRecords(recordIdsToDelete, TEMPLATE_API_URL);
+    }
+
+    const newRecords = workers.map(worker => {
+      const match = worker.avatar.match(/cebi\.com\.tr\/foto\/(.+)\.png$/);
+      const photoId = match && match[1] ? match[1] : undefined;
+      
+      return {
+        fields: {
+          'Status': 'personel',
+          'Personel': worker.name,
+          'PersonelID': photoId,
+          'Company': worker.company || undefined,
+          'Position': worker.position || undefined,
+        },
+      };
+    });
+
+    if (newRecords.length > 0) {
+      await createRecords(newRecords, TEMPLATE_API_URL);
+    }
+
+  } catch (error) {
+    console.error('Error syncing workers with Airtable:', error);
+    throw error;
+  }
+};
+
+export const airFetchWorkers = async (): Promise<Worker[]> => {
+  try {
+    const records = await fetchAllRecords(TEMPLATE_API_URL, "({Status} = 'personel')");
+
+    const fetchedWorkers = records
+      .filter((record: any) => record.fields.Personel)
+      .map((record: any, index: number): Worker => {
+        const fields = record.fields;
+        const name = fields.Personel;
+        const id = fields.PersonelID;
+        const company = fields.Company;
+        const position = fields.Position;
+        
+        let avatar = '';
+        if (id) {
+          avatar = `https://cebi.com.tr/foto/${id}.png`;
+        } else {
+          const randomNumber = Math.floor(Math.random() * 11) + 1;
+          avatar = `https://cebi.com.tr/foto/random${randomNumber}.png`;
+        }
+
+        return {
+          id: `w-fetch-${Date.now()}-${index}`,
+          name: name,
+          avatar: avatar,
+          company: company,
+          position: position,
+        };
+      });
+
+    return fetchedWorkers;
+  } catch (error) {
+    console.error('Error fetching workers from Airtable:', error);
     throw error;
   }
 };

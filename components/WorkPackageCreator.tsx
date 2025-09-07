@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import type { WorkPackage, Task, SubTask } from '../types';
 import { TaskStatus } from '../types';
 import { suggestTasks, AITaskSuggestion } from '../services/geminiService';
-import { BrainCircuitIcon, PlusIcon, TrashIcon } from './icons';
+import { BrainCircuitIcon, PlusIcon, TrashIcon, EraserIcon } from './icons';
 
 interface WorkPackageCreatorProps {
   onCreatePackage: (newPackage: WorkPackage) => void;
+  showToast: (message: string, type: 'success' | 'error') => void;
 }
 
 type EditableTask = {
@@ -14,9 +15,10 @@ type EditableTask = {
   subTasks: { title: string }[];
 };
 
-const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage }) => {
+const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage, showToast }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [company, setCompany] = useState('');
   const [tasks, setTasks] = useState<EditableTask[]>([{ title: '', duration: '25', subTasks: [] }]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
 
@@ -59,10 +61,18 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
     newTasks[taskIndex].subTasks = newTasks[taskIndex].subTasks.filter((_, i) => i !== subTaskIndex);
     setTasks(newTasks);
   };
+  
+  const handleClearForm = () => {
+    setTitle('');
+    setDescription('');
+    setCompany('');
+    setTasks([{ title: '', duration: '25', subTasks: [] }]);
+    showToast('Form temizlendi.', 'success');
+  };
 
   const handleGetAISuggestions = async () => {
     if (!title) {
-      alert('Lütfen önce bir İş Paketi Başlığı girin.');
+      showToast('Lütfen önce bir İş Paketi Başlığı girin.', 'error');
       return;
     }
     setIsLoadingAI(true);
@@ -74,12 +84,13 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
           duration: String(task.duration),
           subTasks: task.subTasks ? task.subTasks.map(st => ({ title: st.title })) : [],
         })));
+        showToast('Yapay zeka ile görevler başarıyla oluşturuldu!', 'success');
       } else {
-        alert('Yapay zeka görev öneremedi. Lütfen manuel olarak ekleyin.');
+        showToast('Yapay zeka görev öneremedi. Lütfen manuel olarak ekleyin.', 'error');
       }
     } catch (error) {
       console.error(error);
-      alert('Görev önerileri alınırken bir hata oluştu.');
+      showToast(error instanceof Error ? error.message : 'Görev önerileri alınırken bir hata oluştu.', 'error');
     } finally {
       setIsLoadingAI(false);
     }
@@ -88,7 +99,7 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || tasks.every(t => !t.title.trim())) {
-      alert('Başlık ve en az bir görev gereklidir.');
+      showToast('Başlık ve en az bir görev gereklidir.', 'error');
       return;
     }
 
@@ -96,6 +107,7 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
       id: `wp-${Date.now()}`,
       title: title.trim(),
       description: description.trim(),
+      company: company.trim() || undefined,
       tasks: tasks
         .filter(t => t.title.trim())
         .map((task, index): Task => ({
@@ -115,9 +127,8 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
     };
 
     onCreatePackage(newPackage);
-    setTitle('');
-    setDescription('');
-    setTasks([{ title: '', duration: '25', subTasks: [] }]);
+    showToast(`'${newPackage.title}' iş paketi oluşturuldu!`, 'success');
+    handleClearForm();
   };
 
   return (
@@ -134,9 +145,20 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 bg-amber-50 text-black border border-slate-300 rounded-md shadow-sm placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                className="mt-1 block w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md shadow-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base text-slate-900"
                 placeholder="Örn: A Blok Temel Betonu"
                 required
+              />
+            </div>
+            <div>
+              <label htmlFor="company" className="block text-base font-medium text-slate-700">Şirket (İsteğe Bağlı)</label>
+              <input
+                type="text"
+                id="company"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md shadow-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base text-slate-900"
+                placeholder="İş paketinin ait olduğu şirket"
               />
             </div>
             <div>
@@ -145,8 +167,8 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="mt-1 block w-full px-3 py-2 bg-amber-50 text-black border border-slate-300 rounded-md shadow-sm placeholder-slate-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                rows={3}
+                className="mt-1 block w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md shadow-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base text-slate-900"
                 placeholder="İş paketi ile ilgili kısa detaylar"
               />
             </div>
@@ -174,7 +196,7 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
                       type="text"
                       value={task.title}
                       onChange={(e) => handleTaskChange(taskIndex, 'title', e.target.value)}
-                      className="flex-grow px-3 py-2 bg-amber-50 text-black border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base placeholder-slate-500"
+                      className="flex-grow px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base placeholder-slate-500 text-slate-900"
                       placeholder={`Görev ${taskIndex + 1}`}
                     />
                     <div className="flex items-center gap-1 flex-shrink-0">
@@ -183,7 +205,7 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
                         inputMode="numeric"
                         value={task.duration}
                         onChange={(e) => handleTaskChange(taskIndex, 'duration', e.target.value)}
-                        className="w-16 text-center px-2 py-2 bg-amber-50 text-black border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base"
+                        className="w-16 text-center px-2 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base text-slate-900"
                         placeholder="Süre"
                       />
                       <span className="text-base text-slate-500">dk</span>
@@ -205,7 +227,7 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
                                 type="text"
                                 value={subTask.title}
                                 onChange={(e) => handleSubTaskChange(taskIndex, subTaskIndex, e.target.value)}
-                                className="flex-grow px-2 py-1 bg-amber-50 text-black border border-slate-200 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base placeholder-slate-500"
+                                className="flex-grow px-2 py-1 bg-white border border-slate-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base placeholder-slate-500 text-slate-900"
                                 placeholder={`Alt Görev ${subTaskIndex + 1}`}
                             />
                              <button
@@ -232,11 +254,19 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
             </button>
           </div>
         </div>
-        <div className="text-right mt-6 pt-4 border-t border-slate-200">
-          <button type="submit" className="inline-flex items-center justify-center gap-2 px-6 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            <PlusIcon className="w-5 h-5"/>
-            Paketi Oluştur
-          </button>
+        <div className="text-right mt-6 pt-4 border-t border-slate-200 flex justify-end gap-3">
+            <button 
+                type="button" 
+                onClick={handleClearForm}
+                className="inline-flex items-center justify-center gap-2 px-6 py-2 border border-slate-300 text-base font-medium rounded-md shadow-sm text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500"
+            >
+                <EraserIcon className="w-5 h-5"/>
+                Temizle
+            </button>
+            <button type="submit" className="inline-flex items-center justify-center gap-2 px-6 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <PlusIcon className="w-5 h-5"/>
+                Paketi Oluştur
+            </button>
         </div>
       </form>
     </div>

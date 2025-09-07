@@ -1,8 +1,25 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { WorkPackage, Task, Worker } from '../types';
 import { TaskStatus } from '../types';
 import TaskCard from './TaskCard';
 import { PackageIcon, TrashIcon } from './icons';
+
+const companyColors = [
+    '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981',
+    '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7',
+    '#d946ef', '#ec4899', '#f43f5e',
+];
+
+const stringToColor = (str: string): string => {
+  if (!str) return '#64748b'; // slate-500
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash % companyColors.length);
+  return companyColors[index];
+};
+
 
 interface WorkPackageCardProps {
   workPackage: WorkPackage;
@@ -14,6 +31,7 @@ interface WorkPackageCardProps {
   onUpdateTaskDuration: (taskId: string, newDurationMinutes: number) => void;
   onUpdateTaskNotes: (taskId: string, notes: string) => void;
   onEditWorker: (workerId: string) => void;
+  onUpdateCompanyFilter: (packageId: string, company: string) => void;
 }
 
 const WorkPackageCard: React.FC<WorkPackageCardProps> = ({ 
@@ -25,7 +43,8 @@ const WorkPackageCard: React.FC<WorkPackageCardProps> = ({
   onDeletePackage,
   onUpdateTaskDuration,
   onUpdateTaskNotes,
-  onEditWorker
+  onEditWorker,
+  onUpdateCompanyFilter
 }) => {
   const completedTasks = workPackage.tasks.filter(t => t.status === TaskStatus.Completed).length;
   const totalTasks = workPackage.tasks.length;
@@ -37,6 +56,23 @@ const WorkPackageCard: React.FC<WorkPackageCardProps> = ({
     // Confirmation is now handled by the parent component
     onDeletePackage(workPackage.id, workPackage.title);
   };
+  
+  const uniqueCompanies = useMemo(() => {
+    const companies = new Set<string>();
+    workers.forEach(worker => {
+        if (worker.company) {
+            companies.add(worker.company);
+        }
+    });
+    return Array.from(companies).sort();
+  }, [workers]);
+
+  const filteredWorkers = useMemo(() => {
+    if (!workPackage.companyFilter) {
+        return workers;
+    }
+    return workers.filter(w => w.company === workPackage.companyFilter);
+  }, [workers, workPackage.companyFilter]);
 
 
   return (
@@ -47,19 +83,44 @@ const WorkPackageCard: React.FC<WorkPackageCardProps> = ({
             <PackageIcon className="w-6 h-6 text-slate-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{workPackage.title}</h3>
-            <p className="text-base text-slate-500">{workPackage.description}</p>
+            <div className="flex items-center gap-3 flex-wrap">
+                <h3 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{workPackage.title}</h3>
+                {workPackage.company && (
+                    <span 
+                        className="text-xs font-semibold text-white px-2.5 py-1 rounded-full whitespace-nowrap"
+                        style={{ backgroundColor: stringToColor(workPackage.company) }}
+                    >
+                        {workPackage.company}
+                    </span>
+                )}
+            </div>
+            <p className="text-base text-slate-500 mt-1">{workPackage.description}</p>
           </div>
         </div>
-        {!isCompleted && (
-          <button 
-            onClick={handleDelete}
-            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded-full transition-colors flex-shrink-0"
-            aria-label="İş paketini sil"
-          >
-            <TrashIcon className="w-5 h-5" />
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+            {uniqueCompanies.length > 0 && !isCompleted && (
+                 <select
+                    value={workPackage.companyFilter || 'all'}
+                    onChange={(e) => onUpdateCompanyFilter(workPackage.id, e.target.value)}
+                    className="block w-full max-w-xs pl-3 pr-8 py-1.5 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md bg-slate-50 text-slate-700"
+                    aria-label="Şirkete göre filtrele"
+                  >
+                    <option value="all">Tüm Şirketler</option>
+                    {uniqueCompanies.map(company => (
+                      <option key={company} value={company}>{company}</option>
+                    ))}
+                  </select>
+            )}
+            {!isCompleted && (
+              <button 
+                onClick={handleDelete}
+                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded-full transition-colors"
+                aria-label="İş paketini sil"
+              >
+                <TrashIcon className="w-5 h-5" />
+              </button>
+            )}
+        </div>
       </div>
       
       <div className="mb-4">
@@ -77,7 +138,7 @@ const WorkPackageCard: React.FC<WorkPackageCardProps> = ({
           <TaskCard
             key={task.id}
             task={task}
-            workers={workers}
+            workers={filteredWorkers}
             onUpdateStatus={(newStatus) => onUpdateTaskStatus(task.id, newStatus)}
             onToggleWorker={(workerId) => onToggleTaskWorker(task.id, workerId)}
             onToggleSubTask={(subTaskId) => onToggleSubTask(task.id, subTaskId)}

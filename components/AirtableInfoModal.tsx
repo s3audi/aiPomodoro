@@ -46,6 +46,7 @@ const AirtableInfoModal: React.FC<AirtableInfoModalProps> = ({ onClose, onConfir
                 <ul className="list-disc list-inside space-y-2 text-slate-600 mt-2 pl-6">
                   <li><code>Task Title</code> (<strong>Ana Alan</strong>, Kısa metin)</li>
                   <li><code>Work Package</code> (Kısa metin)</li>
+                  <li><code>Company</code> (Kısa metin)</li>
                   <li>
                     <code>Status</code> (Tekli seçim. Seçenekler tam olarak şunlar olmalıdır: <code className="bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded-md text-sm">Bekliyor</code>, <code className="bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded-md text-sm">Aktif</code>, <code className="bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded-md text-sm">Tamamlandı</code>)
                   </li>

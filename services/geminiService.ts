@@ -65,6 +65,6 @@ export const suggestTasks = async (packageTitle: string): Promise<AITaskSuggesti
 
   } catch (error) {
     console.error("Error generating tasks with Gemini:", error);
-    return [];
+    throw new Error("Yapay zeka ile görevler oluşturulurken bir hata oluştu.");
   }
 };

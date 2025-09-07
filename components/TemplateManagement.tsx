@@ -1,6 +1,8 @@
+
+
 import React, { useState, useEffect } from 'react';
 import type { WorkPackageTemplate, TaskTemplate } from '../types';
-import { PlusIcon, TrashIcon, PencilIcon, DatabaseIcon, DownloadIcon, AlertTriangleIcon, ExternalLinkIcon } from './icons';
+import { PlusIcon, TrashIcon, PencilIcon, DatabaseIcon, DownloadIcon, AlertTriangleIcon, ExternalLinkIcon, LoaderIcon } from './icons';
 
 type EditableTask = {
   title: string;
@@ -190,6 +192,12 @@ const AirtableTemplateInfoModal: React.FC<{ onClose: () => void; onConfirm: () =
               <li>
                 <strong>Fields (Alanlar):</strong> Tablonuzda aşağıdaki alanları oluşturun:
                 <ul className="list-disc list-inside space-y-2 text-slate-600 mt-2 pl-6">
+                  <li>
+                    <code>Status</code> (Single Select) - Kaydın türünü belirtir.
+                    <div className="text-sm text-slate-500 mt-1 ml-4 p-2 bg-slate-100 rounded">
+                        Bu alanda <strong>personel</strong> ve <strong>task</strong> adında iki seçenek olmalıdır.
+                    </div>
+                  </li>
                   <li><code>Template Title</code> (<strong>Ana Alan</strong>, Kısa metin)</li>
                   <li><code>Description</code> (Uzun metin)</li>
                   <li><code>Tasks</code> (Uzun metin)
@@ -205,7 +213,7 @@ const AirtableTemplateInfoModal: React.FC<{ onClose: () => void; onConfirm: () =
             <AlertTriangleIcon className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
             <div>
                 <h5 className="font-semibold text-amber-800">Önemli Uyarı</h5>
-                <p className="text-sm text-amber-700">Bu işlem, Airtable'daki 'PomoSablon' tablosundaki tüm mevcut kayıtları silecek ve güncel şablon listesini yeniden oluşturacaktır. Airtable'daki eski veriler kaybolacaktır.</p>
+                <p className="text-sm text-amber-700">Bu işlem, Airtable'daki 'PomoSablon' tablosunda `Status` alanı `task` olan tüm mevcut kayıtları silecek ve güncel şablon listesini yeniden oluşturacaktır. Bu işlem personel verilerinizi etkilemez.</p>
             </div>
           </div>
         </div>
@@ -305,11 +313,11 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ templates, onAd
                     <h2 className="text-lg sm:text-xl font-bold text-slate-800">Şablon Yönetimi</h2>
                     <div className="flex items-center gap-2">
                         <button onClick={() => setIsFetchConfirmOpen(true)} disabled={isFetching || isSyncing} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
-                            <DownloadIcon className="w-4 h-4" />
+                            {isFetching ? <LoaderIcon className="w-4 h-4" /> : <DownloadIcon className="w-4 h-4" />}
                             <span>{isFetching ? 'Alınıyor...' : 'Airtable\'dan Al'}</span>
                         </button>
                         <button onClick={() => setIsInfoModalOpen(true)} disabled={isSyncing || isFetching} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
-                            <DatabaseIcon className="w-4 h-4" />
+                            {isSyncing ? <LoaderIcon className="w-4 h-4" /> : <DatabaseIcon className="w-4 h-4" />}
                             <span>{isSyncing ? 'Gönderiliyor...' : 'Airtable\'a Gönder'}</span>
                         </button>
                          <button

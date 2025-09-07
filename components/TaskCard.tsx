@@ -182,7 +182,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
                                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                               />
                               <img src={worker.avatar} alt={worker.name} className="w-6 h-6 rounded-full" />
-                              <span className={`text-base ${task.assignedWorkerIds.includes(worker.id) ? 'font-bold text-slate-800' : 'font-medium text-red-600'}`}>{worker.name}</span>
+                              <span className={`text-base ${task.assignedWorkerIds.includes(worker.id) ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>{worker.name}</span>
                           </label>
                       ))}
                   </div>
@@ -197,7 +197,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
                       onContextMenu={onEditWorker ? (e) => { e.preventDefault(); onEditWorker(worker.id); } : undefined}
                       disabled={task.status === TaskStatus.Completed}
                       className="flex items-center gap-2 px-2 py-1 text-base bg-slate-100 rounded-full disabled:cursor-default disabled:hover:bg-slate-100 cursor-pointer hover:bg-red-100 transition-colors"
-                      title={onEditWorker ? `${worker.name} adlı personeli düzenlemek için sağ tıklayın` : `${worker.name} adlı personeli görevden çıkar`}
+                      title={`${worker.name}${worker.position ? ` (${worker.position})` : ''} | Düzenle (Sağ Tık) / Çıkar (Tıkla)`}
                     >
                       <img src={worker.avatar} alt={worker.name} className={`rounded-full object-cover transition-all duration-300 ${isActive ? 'w-12 h-12' : 'w-6 h-6'}`} />
                       <span className="text-slate-800 font-semibold">{worker.name}</span>
@@ -222,8 +222,8 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
                     key={worker.id} 
                     onClick={() => onToggleWorker(worker.id)} 
                     onContextMenu={onEditWorker ? (e) => { e.preventDefault(); onEditWorker(worker.id); } : undefined}
-                    className="flex items-center gap-2 px-3 py-1.5 text-base text-red-600 font-medium bg-white border border-slate-300 rounded-full hover:bg-red-50 transition-colors"
-                    title={onEditWorker ? `${worker.name} adlı personeli düzenlemek için sağ tıklayın` : undefined}
+                    className="flex items-center gap-2 px-3 py-1.5 text-base text-slate-700 font-medium bg-white border border-slate-300 rounded-full hover:bg-green-50 transition-colors"
+                    title={`${worker.name}${worker.position ? ` (${worker.position})` : ''} | Düzenle (Sağ Tık) / Göreve Ekle (Tıkla)`}
                   >
                     <img src={worker.avatar} alt={worker.name} className={`rounded-full object-cover transition-all duration-300 ${isActive ? 'w-10 h-10' : 'w-5 h-5'}`} />
                     {worker.name}
