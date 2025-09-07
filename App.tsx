@@ -8,13 +8,14 @@ import WorkPackageCard from './components/WorkPackageCard';
 import TeamManagement from './components/TeamManagement';
 import TemplateSelector from './components/TemplateSelector';
 import TemplateManagement from './components/TemplateManagement';
-import { UploadIcon, DownloadIcon, UsersIcon, PackageIcon, ClipboardListIcon, DatabaseIcon } from './components/icons';
+import { UploadIcon, DownloadIcon, UsersIcon, PackageIcon, ClipboardListIcon, DatabaseIcon, ZapIcon } from './components/icons';
 import { airSync, airFetch } from './services/airtableService';
 import AirtableInfoModal from './components/AirtableInfoModal';
 import AirtableFetchConfirmModal from './components/AirtableFetchConfirmModal';
 import ConfirmModal from './components/ConfirmModal';
+import ActiveTasksView from './components/ActiveTasksView';
 
-type View = 'packages' | 'team' | 'templates';
+type View = 'packages' | 'activeTasks' | 'team' | 'templates';
 type DeleteTarget = { type: 'package' | 'worker' | 'template'; id: string; name: string };
 
 const App: React.FC = () => {
@@ -201,10 +202,13 @@ const App: React.FC = () => {
 
 
   const handleAddWorker = useCallback((name: string) => {
+    const workerId = `w-${Date.now()}`;
     const newWorker: Worker = {
-      id: `w-${Date.now()}`,
+      id: workerId,
       name,
-      avatar: `https://i.pravatar.cc/150?u=${encodeURIComponent(name)}`
+      // Use the unique ID for the initial avatar to prevent service-side caching issues with names.
+      // The refresh button in the editor will then generate a new avatar based on the name.
+      avatar: `https://i.pravatar.cc/150?u=${workerId}`
     };
     setWorkers(prev => [...prev, newWorker]);
   }, []);
@@ -390,6 +394,13 @@ const App: React.FC = () => {
                     İş Paketleri
                 </button>
                 <button 
+                    onClick={() => setCurrentView('activeTasks')}
+                    className={`flex items-center gap-2 px-4 py-3 text-base font-semibold border-b-2 transition-colors ${currentView === 'activeTasks' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                >
+                    <ZapIcon className="w-5 h-5"/>
+                    Aktif Görevler
+                </button>
+                <button 
                     onClick={() => setCurrentView('team')}
                     className={`flex items-center gap-2 px-4 py-3 text-base font-semibold border-b-2 transition-colors ${currentView === 'team' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                 >
@@ -489,6 +500,17 @@ const App: React.FC = () => {
                     )}
                 </div>
             </>
+        )}
+        {currentView === 'activeTasks' && (
+            <ActiveTasksView
+                workPackages={workPackages}
+                workers={workers}
+                onUpdateTaskStatus={handleUpdateTaskStatus}
+                onToggleTaskWorker={handleToggleTaskWorker}
+                onToggleSubTask={handleToggleSubTask}
+                onUpdateTaskDuration={handleUpdateTaskDuration}
+                onUpdateTaskNotes={handleUpdateTaskNotes}
+            />
         )}
         {currentView === 'team' && (
             <TeamManagement
