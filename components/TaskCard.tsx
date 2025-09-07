@@ -179,7 +179,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
                                 className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                             <img src={worker.avatar} alt={worker.name} className="w-6 h-6 rounded-full" />
-                            <span className="text-base">{worker.name}</span>
+                            <span className={`text-base ${task.assignedWorkerIds.includes(worker.id) ? 'font-bold text-red-600' : 'text-slate-800'}`}>{worker.name}</span>
                         </label>
                     ))}
                 </div>
@@ -190,7 +190,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
                 assignedWorkers.map(worker => (
                   <div key={worker.id} className="flex items-center gap-2 px-2 py-1 text-base bg-slate-100 rounded-full">
                     <img src={worker.avatar} alt={worker.name} className="w-6 h-6 rounded-full" />
-                    <span>{worker.name}</span>
+                    <span className="text-slate-800">{worker.name}</span>
                   </div>
                 ))
               ) : (

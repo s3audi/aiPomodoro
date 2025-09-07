@@ -84,7 +84,7 @@ const TeamManagement: React.FC<TeamManagementProps> = ({ workers, onAddWorker, o
                 {editingWorkerId === worker.id ? (
                   <div className="flex items-center gap-3 flex-grow">
                     <div className="relative flex-shrink-0">
-                        <img src={editingWorkerAvatar} alt={editingWorkerName} className="w-10 h-10 rounded-full" />
+                        <img src={editingWorkerAvatar} alt={editingWorkerName} className="w-20 h-20 rounded-full" />
                         <button
                             type="button"
                             onClick={handleRefreshAvatar}
@@ -113,7 +113,7 @@ const TeamManagement: React.FC<TeamManagementProps> = ({ workers, onAddWorker, o
                 ) : (
                   <>
                     <div className="flex items-center gap-3">
-                      <img src={worker.avatar} alt={worker.name} className="w-10 h-10 rounded-full" />
+                      <img src={worker.avatar} alt={worker.name} className="w-20 h-20 rounded-full" />
                       <span className="font-medium text-base text-slate-700">{worker.name}</span>
                     </div>
                     <div className="flex items-center">

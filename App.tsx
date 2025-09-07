@@ -8,7 +8,9 @@ import WorkPackageCard from './components/WorkPackageCard';
 import TeamManagement from './components/TeamManagement';
 import TemplateSelector from './components/TemplateSelector';
 import TemplateManagement from './components/TemplateManagement';
-import { UploadIcon, DownloadIcon, UsersIcon, PackageIcon, ClipboardListIcon } from './components/icons';
+import { UploadIcon, DownloadIcon, UsersIcon, PackageIcon, ClipboardListIcon, DatabaseIcon } from './components/icons';
+import { airFetch, airSync } from './services/airtableService';
+import AirtableInfoModal from './components/AirtableInfoModal';
 
 type View = 'packages' | 'team' | 'templates';
 
@@ -19,11 +21,30 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('packages');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [airtableRecordId, setAirtableRecordId] = useState<string | undefined>();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+  const [isAirtableModalOpen, setIsAirtableModalOpen] = useState(false);
+  const [airtableAction, setAirtableAction] = useState<'sync' | 'fetch' | null>(null);
+
+
   const handleCreatePackage = useCallback((newPackage: WorkPackage) => {
-    setWorkPackages(prev => [newPackage, ...prev]);
-  }, []);
+    const firstWorkerId = workers[0]?.id;
+    const packageToCreate = firstWorkerId
+      ? {
+          ...newPackage,
+          tasks: newPackage.tasks.map(task => ({
+            ...task,
+            assignedWorkerIds: [firstWorkerId],
+          })),
+        }
+      : newPackage;
+
+    setWorkPackages(prev => [packageToCreate, ...prev]);
+  }, [workers]);
 
   const handleCreatePackageFromTemplate = useCallback((template: WorkPackageTemplate) => {
+    const firstWorkerId = workers[0]?.id;
     const newPackage: WorkPackage = {
         id: `wp-${Date.now()}`,
         title: template.title,
@@ -32,7 +53,7 @@ const App: React.FC = () => {
             id: `task-${Date.now()}-${index}`,
             title: taskTemplate.title,
             status: TaskStatus.Pending,
-            assignedWorkerIds: [],
+            assignedWorkerIds: firstWorkerId ? [firstWorkerId] : [],
             durationSeconds: taskTemplate.durationMinutes * 60,
             subTasks: taskTemplate.subTasks.map((st, stIndex) => ({
                 id: `subtask-${Date.now()}-${index}-${stIndex}`,
@@ -43,7 +64,7 @@ const App: React.FC = () => {
     };
     setWorkPackages(prev => [newPackage, ...prev]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [workers]);
 
   const handleUpdateTaskStatus = useCallback((packageId: string, taskId: string, newStatus: TaskStatus) => {
     setWorkPackages(prevPackages => 
@@ -154,10 +175,9 @@ const App: React.FC = () => {
 
   const handleDeleteWorkPackage = useCallback((packageId: string, packageTitle: string) => {
     if (window.confirm(`'${packageTitle}' başlıklı iş paketini silmek istediğinizden emin misiniz?`)) {
-        const updatedWorkPackages = workPackages.filter(wp => wp.id !== packageId);
-        setWorkPackages(updatedWorkPackages);
+        setWorkPackages(prevPackages => prevPackages.filter(wp => wp.id !== packageId));
     }
-  }, [workPackages]);
+  }, []);
 
 
   const handleAddWorker = useCallback((name: string) => {
@@ -174,10 +194,9 @@ const App: React.FC = () => {
   }, []);
 
 
-  const handleDeleteWorker = useCallback((workerId: string, workerName: string) => {
+  const handleDeleteWorker = (workerId: string, workerName: string) => {
     if (window.confirm(`'${workerName}' adlı personeli silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) {
         setWorkers(prev => prev.filter(w => w.id !== workerId));
-
         setWorkPackages(prev => prev.map(wp => ({
             ...wp,
             tasks: wp.tasks.map(task => ({
@@ -186,7 +205,7 @@ const App: React.FC = () => {
             }))
         })));
     }
-  }, []);
+  };
   
   const handleAddTemplate = useCallback((template: Omit<WorkPackageTemplate, 'id'>) => {
     const newTemplate: WorkPackageTemplate = {
@@ -200,15 +219,14 @@ const App: React.FC = () => {
     setTemplates(prev => prev.map(t => t.id === updatedTemplate.id ? updatedTemplate : t));
   }, []);
 
-  const handleDeleteTemplate = useCallback((templateId: string) => {
+  const handleDeleteTemplate = (templateId: string) => {
     if (window.confirm("Bu şablonu silmek istediğinizden emin misiniz?")) {
-      setTemplates(prev => prev.filter(t => t.id !== templateId));
+        setTemplates(prev => prev.filter(t => t.id !== templateId));
     }
-  }, []);
-
+  };
 
   const handleExportData = () => {
-    const appState: AppState = { workPackages, workers, templates };
+    const appState: AppState = { workPackages, workers, templates, airtableRecordId };
     const dataStr = JSON.stringify(appState, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
@@ -247,6 +265,7 @@ const App: React.FC = () => {
           } else {
             setTemplates(INITIAL_TEMPLATES);
           }
+          setAirtableRecordId(data.airtableRecordId);
           alert("Veri başarıyla içe aktarıldı!");
         } else {
           throw new Error("Geçersiz dosya formatı.");
@@ -260,6 +279,53 @@ const App: React.FC = () => {
     };
     reader.readAsText(file);
   };
+  
+  const openAirtableModal = (action: 'sync' | 'fetch') => {
+    setAirtableAction(action);
+    setIsAirtableModalOpen(true);
+  };
+
+  const handleAirSync = async () => {
+    setIsSyncing(true);
+    try {
+      const appState: AppState = { workPackages, workers, templates, airtableRecordId };
+      const dataStr = JSON.stringify(appState);
+      const newRecordId = await airSync(dataStr, airtableRecordId);
+      setAirtableRecordId(newRecordId);
+      alert('Veri başarıyla Airtable\'a gönderildi!');
+    } catch (error) {
+      alert(`Airtable'a gönderilirken bir hata oluştu: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleAirFetch = async () => {
+    // Confirmation is now handled by the modal
+    setIsFetching(true);
+    try {
+      const result = await airFetch();
+      if (result) {
+        const data = JSON.parse(result.data) as AppState;
+        if (Array.isArray(data.workPackages) && Array.isArray(data.workers)) {
+          setWorkPackages(data.workPackages);
+          setWorkers(data.workers);
+          setTemplates(data.templates || INITIAL_TEMPLATES);
+          setAirtableRecordId(result.recordId);
+          alert("Veri başarıyla Airtable'dan alındı!");
+        } else {
+          throw new Error("Airtable'dan gelen veri formatı geçersiz.");
+        }
+      } else {
+        alert("Airtable'da kayıt bulunamadı. Önce veri göndermeyi deneyin.");
+      }
+    } catch (error) {
+      alert(`Airtable'dan veri alınırken bir hata oluştu: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
 
   const ongoingPackages = workPackages.filter(wp => wp.tasks.some(t => t.status !== TaskStatus.Completed));
   const completedPackages = workPackages.filter(wp => wp.tasks.every(t => t.status === TaskStatus.Completed));
@@ -271,6 +337,14 @@ const App: React.FC = () => {
             <div className="flex justify-between items-center py-4">
                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Şantiye Pomodoro</h1>
                  <div className="flex items-center gap-2">
+                    <button onClick={() => openAirtableModal('fetch')} disabled={isFetching} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
+                      <DatabaseIcon className="w-4 h-4" />
+                      <span>{isFetching ? 'Alınıyor...' : 'AirAl'}</span>
+                    </button>
+                    <button onClick={() => openAirtableModal('sync')} disabled={isSyncing} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
+                        <DatabaseIcon className="w-4 h-4" />
+                        <span>{isSyncing ? 'Veriliyor...' : 'AirVer'}</span>
+                    </button>
                      <button onClick={handleImportClick} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors">
                         <UploadIcon className="w-4 h-4" />
                         <span>İçe Aktar</span>
@@ -315,6 +389,23 @@ const App: React.FC = () => {
       </header>
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {isAirtableModalOpen && airtableAction && (
+          <AirtableInfoModal
+            action={airtableAction}
+            onClose={() => setIsAirtableModalOpen(false)}
+            onConfirm={() => {
+              setIsAirtableModalOpen(false);
+              if (airtableAction === 'sync') {
+                handleAirSync();
+              } else if (airtableAction === 'fetch') {
+                if (window.confirm("Mevcut tüm verilerinizin üzerine Airtable'dan alınan veriler yazılacaktır. Devam etmek istiyor musunuz?")) {
+                   handleAirFetch();
+                }
+              }
+            }}
+          />
+        )}
+
         {currentView === 'packages' && (
             <>
                  <WorkPackageCreator onCreatePackage={handleCreatePackage} />
