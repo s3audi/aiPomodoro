@@ -15,6 +15,7 @@ import AirtableFetchConfirmModal from './components/AirtableFetchConfirmModal';
 import ConfirmModal from './components/ConfirmModal';
 import ActiveTasksView from './components/ActiveTasksView';
 import Toast from './components/Toast';
+import QuickLinksDropdown from './components/QuickLinksDropdown';
 
 type View = 'packages' | 'activeTasks' | 'team' | 'templates';
 type DeleteTarget = { type: 'package' | 'worker' | 'template'; id: string; name: string };
@@ -142,7 +143,7 @@ const WorkerEditModal: React.FC<WorkerEditModalProps> = ({ isOpen, worker, onClo
             <button onClick={onClose} type="button" className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">
                 İptal
             </button>
-            <button onClick={handleSave} type="button" className="inline-flex items-center gap-2 px-4 py-2 text-base font-bold text-white rounded-lg transition-colors bg-blue-600 hover:bg-blue-700">
+            <button onClick={handleSave} type="button" className="inline-flex items-center gap-2 px-4 py-2 text-base font-bold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors">
                 <SaveIcon className="w-5 h-5" />
                 Kaydet
             </button>
@@ -166,10 +167,6 @@ const App: React.FC = () => {
   const [isAirtableFetchModalOpen, setIsAirtableFetchModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
-  const [isSyncingTemplates, setIsSyncingTemplates] = useState(false);
-  const [isFetchingTemplates, setIsFetchingTemplates] = useState(false);
-  const [isSyncingWorkers, setIsSyncingWorkers] = useState(false);
-  const [isFetchingWorkers, setIsFetchingWorkers] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
@@ -393,6 +390,22 @@ const App: React.FC = () => {
     });
   }, [workers]);
 
+  const handleUpdateWorkPackageUrls = useCallback((packageId: string, urls: { imageUrl?: string; pdfUrl?: string }) => {
+    setWorkPackages(prev =>
+      prev.map(wp => {
+        if (wp.id !== packageId) return wp;
+        const updatedWp = { ...wp };
+        if (urls.imageUrl !== undefined) {
+          updatedWp.imageUrl = urls.imageUrl.trim() || undefined;
+        }
+        if (urls.pdfUrl !== undefined) {
+          updatedWp.pdfUrl = urls.pdfUrl.trim() || undefined;
+        }
+        return updatedWp;
+      })
+    );
+  }, []);
+
 
   const handleAddWorker = useCallback((name: string, company?: string, position?: string) => {
     const workerId = `w-${Date.now()}`;
@@ -533,6 +546,7 @@ const App: React.FC = () => {
         if(fileInputRef.current) fileInputRef.current.value = "";
       }
     };
+    // FIX: Corrected a typo in the FileReader API call from `readText` to `readAsText`.
     reader.readAsText(file);
   };
   
@@ -544,10 +558,18 @@ const App: React.FC = () => {
     setIsAirtableFetchModalOpen(false);
     setIsFetching(true);
     try {
-      const { workPackages, workers } = await airFetch();
+      const [fetchedTemplates, initialWorkers] = await Promise.all([
+        airFetchTemplates(),
+        airFetchWorkers()
+      ]);
+      
+      const { workPackages, workers: updatedWorkers } = await airFetch(initialWorkers);
+      
+      setTemplates(fetchedTemplates);
+      setWorkers(updatedWorkers);
       setWorkPackages(workPackages);
-      setWorkers(workers);
-      showToast('Veriler başarıyla Airtable\'dan çekildi!', 'success');
+      
+      showToast('Tüm veriler başarıyla Airtable\'dan çekildi!', 'success');
     } catch (error) {
       showToast(`Airtable'dan veri çekilirken hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
     } finally {
@@ -558,65 +580,18 @@ const App: React.FC = () => {
   const handleAirSync = async () => {
     setIsSyncing(true);
     try {
-      await airSync(workPackages, workers);
-      showToast('Tüm görevler başarıyla Airtable\'a gönderildi!', 'success');
+      await Promise.all([
+        airSync(workPackages, workers),
+        airSyncTemplates(templates),
+        airSyncWorkers(workers)
+      ]);
+      showToast('Tüm veriler başarıyla Airtable\'a gönderildi!', 'success');
     } catch (error) {
       showToast(`Airtable'a gönderilirken hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
     } finally {
       setIsSyncing(false);
     }
   };
-
-  const handleAirFetchTemplates = async () => {
-    setIsFetchingTemplates(true);
-    try {
-      const fetchedTemplates = await airFetchTemplates();
-      setTemplates(fetchedTemplates);
-      showToast('Şablonlar başarıyla Airtable\'dan çekildi!', 'success');
-    } catch (error) {
-      showToast(`Airtable'dan şablon çekilirken hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
-    } finally {
-      setIsFetchingTemplates(false);
-    }
-  };
-
-  const handleAirSyncTemplates = async () => {
-    setIsSyncingTemplates(true);
-    try {
-      await airSyncTemplates(templates);
-      showToast('Şablonlar başarıyla Airtable\'a gönderildi!', 'success');
-    } catch (error) {
-      showToast(`Airtable'a şablon gönderilirken hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
-    } finally {
-      setIsSyncingTemplates(false);
-    }
-  };
-
-  const handleAirFetchWorkers = async () => {
-    setIsFetchingWorkers(true);
-    try {
-      const fetchedWorkers = await airFetchWorkers();
-      setWorkers(fetchedWorkers);
-      showToast('Personel listesi başarıyla Airtable\'dan çekildi!', 'success');
-    } catch (error) {
-      showToast(`Airtable'dan personel çekilirken hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
-    } finally {
-      setIsFetchingWorkers(false);
-    }
-  };
-
-  const handleAirSyncWorkers = async () => {
-    setIsSyncingWorkers(true);
-    try {
-      await airSyncWorkers(workers);
-      showToast('Personel listesi başarıyla Airtable\'a gönderildi!', 'success');
-    } catch (error) {
-      showToast(`Airtable'a personel gönderilirken hata: ${error instanceof Error ? error.message : String(error)}`, 'error');
-    } finally {
-      setIsSyncingWorkers(false);
-    }
-  };
-
 
   const ongoingPackages = workPackages.filter(wp => wp.tasks.some(t => t.status !== TaskStatus.Completed));
   const completedPackages = workPackages.filter(wp => wp.tasks.every(t => t.status === TaskStatus.Completed));
@@ -630,6 +605,7 @@ const App: React.FC = () => {
             <div className="flex justify-between items-center py-4">
                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Şantiye Pomodoro</h1>
                  <div className="flex items-center gap-2">
+                    <QuickLinksDropdown />
                     <button onClick={() => setIsAirtableFetchModalOpen(true)} disabled={isFetching || isSyncing} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
                         <DownloadIcon className="w-4 h-4" />
                         <span>{isFetching ? 'Alınıyor...' : 'Airtable\'dan Al'}</span>
@@ -751,6 +727,7 @@ const App: React.FC = () => {
                                 onUpdateTaskNotes={handleUpdateTaskNotes}
                                 onEditWorker={handleStartEditWorker}
                                 onUpdateCompanyFilter={handleUpdateWorkPackageCompanyFilter}
+                                onUpdateUrls={handleUpdateWorkPackageUrls}
                             />
                         ))
                     ) : (
@@ -777,6 +754,7 @@ const App: React.FC = () => {
                                 onUpdateTaskNotes={handleUpdateTaskNotes}
                                 onEditWorker={handleStartEditWorker}
                                 onUpdateCompanyFilter={handleUpdateWorkPackageCompanyFilter}
+                                onUpdateUrls={handleUpdateWorkPackageUrls}
                             />
                         ))
                     ) : (
@@ -807,10 +785,6 @@ const App: React.FC = () => {
                 onDeleteWorker={handleDeleteWorker}
                 onEditWorker={handleStartEditWorker}
                 onCopyWorker={handleCopyWorker}
-                onAirSync={handleAirSyncWorkers}
-                onAirFetch={handleAirFetchWorkers}
-                isSyncing={isSyncingWorkers}
-                isFetching={isFetchingWorkers}
             />
         )}
         {currentView === 'templates' && (
@@ -819,10 +793,6 @@ const App: React.FC = () => {
               onAddTemplate={handleAddTemplate}
               onUpdateTemplate={handleUpdateTemplate}
               onDeleteTemplate={handleDeleteTemplate}
-              onAirSync={handleAirSyncTemplates}
-              onAirFetch={handleAirFetchTemplates}
-              isSyncing={isSyncingTemplates}
-              isFetching={isFetchingTemplates}
             />
         )}
       </main>

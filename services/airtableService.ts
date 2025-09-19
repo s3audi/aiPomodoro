@@ -146,6 +146,8 @@ export const airSync = async (workPackages: WorkPackage[], workers: Worker[]): P
             'Manager Notes': task.managerNotes || '',
             'Start Time': task.startTime ? formatToLocalISOWithoutTimezone(task.startTime) : undefined,
             'End Time': task.endTime ? formatToLocalISOWithoutTimezone(task.endTime) : undefined,
+            'ImageUrl': wp.imageUrl || null,
+            'PdfUrl': wp.pdfUrl || null,
           },
         });
       });
@@ -162,12 +164,14 @@ export const airSync = async (workPackages: WorkPackage[], workers: Worker[]): P
   }
 };
 
-export const airFetch = async (): Promise<{ workPackages: WorkPackage[], workers: Worker[] }> => {
+export const airFetch = async (initialWorkers: Worker[]): Promise<{ workPackages: WorkPackage[], workers: Worker[] }> => {
   try {
     const records = await fetchAllRecords(API_URL);
 
-    const workPackagesMap = new Map<string, WorkPackage>(); // Key: "title|company"
-    const workersMap = new Map<string, Worker>(); // Map name to Worker object
+    const workPackagesMap = new Map<string, WorkPackage>();
+    // Use the provided worker list and allow adding to it.
+    const workers = [...initialWorkers];
+    const workersMap = new Map<string, Worker>(workers.map(w => [w.name, w]));
 
     for (const record of records) {
       const fields = record.fields;
@@ -175,35 +179,36 @@ export const airFetch = async (): Promise<{ workPackages: WorkPackage[], workers
       const wpCompany = fields['Company'] || undefined;
       const wpKey = `${wpTitle}|${wpCompany || ''}`;
 
-      // Ensure work package exists
       if (!workPackagesMap.has(wpKey)) {
         workPackagesMap.set(wpKey, {
           id: `wp-fetch-${Date.now()}-${workPackagesMap.size}`,
           title: wpTitle,
-          description: '', // NOTE: Airtable schema doesn't store WP description.
+          description: '',
           company: wpCompany,
           tasks: [],
+          imageUrl: fields['ImageUrl'] || undefined,
+          pdfUrl: fields['PdfUrl'] || undefined,
         });
       }
       const workPackage = workPackagesMap.get(wpKey)!;
 
-      // Parse workers
       const assignedWorkerIds: string[] = [];
       const workerNames: string[] = (fields['Assigned Workers'] || '').split(',').map((name: string) => name.trim()).filter(Boolean);
-      
+
       workerNames.forEach(name => {
         if (!workersMap.has(name)) {
           const randomNumber = Math.floor(Math.random() * 22) + 1;
-          workersMap.set(name, {
+          const newWorker: Worker = {
             id: `w-fetch-${Date.now()}-${workersMap.size}`,
             name: name,
-            avatar: `https://cebi.com.tr/foto/${randomNumber}.png`
-          });
+            avatar: `https://cebi.com.tr/foto/${randomNumber}.png`,
+          };
+          workersMap.set(name, newWorker);
+          workers.push(newWorker);
         }
         assignedWorkerIds.push(workersMap.get(name)!.id);
       });
-
-      // Parse subtasks
+      
       const subTasks: SubTask[] = (fields['Subtask Checklist'] || '').split('\n').map((line: string, index: number): SubTask | null => {
         const trimmedLine = line.trim();
         if (!trimmedLine) return null;
@@ -232,8 +237,6 @@ export const airFetch = async (): Promise<{ workPackages: WorkPackage[], workers
         };
       }).filter((st): st is SubTask => st !== null && st.title !== '');
 
-
-      // Create task
       const task: Task = {
         id: `task-fetch-${record.id}`,
         title: fields['Task Title'] || 'İsimsiz Görev',
@@ -250,8 +253,6 @@ export const airFetch = async (): Promise<{ workPackages: WorkPackage[], workers
     }
 
     const workPackages = Array.from(workPackagesMap.values());
-    const workers = Array.from(workersMap.values());
-
     return { workPackages, workers };
   } catch (error) {
     console.error('Error fetching from Airtable:', error);

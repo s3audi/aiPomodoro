@@ -19,6 +19,8 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [company, setCompany] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [pdfUrl, setPdfUrl] = useState('');
   const [tasks, setTasks] = useState<EditableTask[]>([{ title: '', duration: '25', subTasks: [] }]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
 
@@ -66,6 +68,8 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
     setTitle('');
     setDescription('');
     setCompany('');
+    setImageUrl('');
+    setPdfUrl('');
     setTasks([{ title: '', duration: '25', subTasks: [] }]);
     showToast('Form temizlendi.', 'success');
   };
@@ -108,6 +112,8 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
       title: title.trim(),
       description: description.trim(),
       company: company.trim() || undefined,
+      imageUrl: imageUrl.trim() || undefined,
+      pdfUrl: pdfUrl.trim() || undefined,
       tasks: tasks
         .filter(t => t.title.trim())
         .map((task, index): Task => ({
@@ -151,17 +157,6 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
               />
             </div>
             <div>
-              <label htmlFor="company" className="block text-base font-medium text-slate-700">Şirket (İsteğe Bağlı)</label>
-              <input
-                type="text"
-                id="company"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md shadow-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base text-slate-900"
-                placeholder="İş paketinin ait olduğu şirket"
-              />
-            </div>
-            <div>
               <label htmlFor="description" className="block text-base font-medium text-slate-700">Açıklama</label>
               <textarea
                 id="description"
@@ -182,7 +177,7 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
                     type="button"
                     onClick={handleGetAISuggestions}
                     disabled={isLoadingAI || !title}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-indigo-600 rounded-full hover:bg-indigo-700 transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-indigo-700 bg-indigo-100 rounded-full hover:bg-indigo-200 transition-colors disabled:bg-indigo-100 disabled:text-indigo-400 disabled:cursor-not-allowed"
                 >
                     <BrainCircuitIcon className="w-4 h-4" />
                     {isLoadingAI ? 'Oluşturuluyor...' : 'AI ile Görev Öner'}
@@ -254,6 +249,41 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
             </button>
           </div>
         </div>
+        <div className="grid md:grid-cols-3 gap-x-8 gap-y-4 mt-4 pt-4 border-t border-slate-200">
+             <div>
+              <label htmlFor="company" className="block text-base font-medium text-slate-700">Şirket (İsteğe Bağlı)</label>
+              <input
+                type="text"
+                id="company"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md shadow-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base text-slate-900"
+                placeholder="İş paketinin ait olduğu şirket"
+              />
+            </div>
+             <div>
+              <label htmlFor="imageUrl" className="block text-base font-medium text-slate-700">Görsel URL (İsteğe Bağlı)</label>
+              <input
+                type="url"
+                id="imageUrl"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md shadow-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base text-slate-900"
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+             <div>
+              <label htmlFor="pdfUrl" className="block text-base font-medium text-slate-700">PDF URL (İsteğe Bağlı)</label>
+              <input
+                type="url"
+                id="pdfUrl"
+                value={pdfUrl}
+                onChange={(e) => setPdfUrl(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md shadow-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base text-slate-900"
+                placeholder="https://example.com/document.pdf"
+              />
+            </div>
+        </div>
         <div className="text-right mt-6 pt-4 border-t border-slate-200 flex justify-end gap-3">
             <button 
                 type="button" 
@@ -263,7 +293,7 @@ const WorkPackageCreator: React.FC<WorkPackageCreatorProps> = ({ onCreatePackage
                 <EraserIcon className="w-5 h-5"/>
                 Temizle
             </button>
-            <button type="submit" className="inline-flex items-center justify-center gap-2 px-6 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <button type="submit" className="inline-flex items-center justify-center gap-2 px-6 py-2 border border-transparent text-base font-bold rounded-md shadow-sm text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                 <PlusIcon className="w-5 h-5"/>
                 Paketi Oluştur
             </button>

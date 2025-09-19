@@ -38,6 +38,8 @@ export interface WorkPackage {
   tasks: Task[];
   company?: string;
   companyFilter?: string;
+  imageUrl?: string;
+  pdfUrl?: string;
 }
 
 export interface AppState {

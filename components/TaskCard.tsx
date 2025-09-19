@@ -317,7 +317,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
             rows={3}
           />
           <div className="flex items-center justify-end gap-2 mt-2">
-              <button onClick={handleSaveNotes} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
+              <button onClick={handleSaveNotes} className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors">
               <SaveIcon className="w-4 h-4" />
               Notları Kaydet
             </button>
@@ -334,7 +334,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, workers, onUpdateStatus, onTo
           <button 
             onClick={handleStart} 
             disabled={assignedWorkers.length === 0}
-            className="px-4 py-2 text-base font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-base font-bold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed"
           >
             Görevi Başlat
           </button>

@@ -53,7 +53,7 @@ const TemplatePreviewModal: React.FC<{
           <button onClick={onClose} className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">
             İptal
           </button>
-          <button onClick={onConfirm} className="px-4 py-2 text-base font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+          <button onClick={onConfirm} className="px-4 py-2 text-base font-bold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors">
             Bu Şablondan Paket Oluştur
           </button>
         </div>

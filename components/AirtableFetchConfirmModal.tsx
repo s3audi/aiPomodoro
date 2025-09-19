@@ -20,7 +20,7 @@ const AirtableFetchConfirmModal: React.FC<AirtableFetchConfirmModalProps> = ({ o
             <div>
                 <h5 className="font-semibold text-amber-800">Onay Gerekiyor</h5>
                 <p className="text-base text-amber-700">
-                  Bu işlem, Airtable'daki verileri çekecek ve mevcut tüm yerel verilerinizin (iş paketleri, görevler, ekip vb.) üzerine yazacaktır. Bu işlem geri alınamaz. Devam etmek istediğinizden emin misiniz?
+                  Bu işlem, Airtable'daki verileri çekecek ve mevcut tüm yerel verilerinizin (iş paketleri, görevler, ekip ve şablonlar) üzerine yazacaktır. Bu işlem geri alınamaz. Devam etmek istediğinizden emin misiniz?
                 </p>
             </div>
           </div>
@@ -30,8 +30,8 @@ const AirtableFetchConfirmModal: React.FC<AirtableFetchConfirmModalProps> = ({ o
           <button onClick={onClose} className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">
             İptal
           </button>
-          <button onClick={onConfirm} className="px-4 py-2 text-base font-bold text-white rounded-lg transition-colors bg-blue-600 hover:bg-blue-700">
-            Onayla ve Verileri Al
+          <button onClick={onConfirm} className="px-4 py-2 text-base font-bold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors">
+            Onayla ve Tüm Verileri Al
           </button>
         </div>
       </div>

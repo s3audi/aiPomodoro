@@ -65,90 +65,6 @@ const CompanyLogo: React.FC<{ company?: string }> = ({ company }) => {
 };
 
 
-interface AirtableWorkerInfoModalProps {
-  onClose: () => void;
-  onConfirm: () => void;
-}
-
-const AirtableWorkerInfoModal: React.FC<AirtableWorkerInfoModalProps> = ({ onClose, onConfirm }) => {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6 border-b border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800">Airtable'a Personel Gönder</h3>
-        </div>
-        <div className="p-6 space-y-6">
-           <p className="text-base text-slate-600">
-             Personellerin Airtable'a doğru bir şekilde gönderilmesi için `PomoSablon` tablosunda aşağıdaki alanların oluşturulması gerekmektedir:
-            </p>
-            <ul className="list-decimal list-inside space-y-3 text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-200">
-              <li><strong>Table (Tablo):</strong> Base içinde `PomoSablon` adında bir tablo bulunmalıdır.</li>
-              <li>
-                <strong>Fields (Alanlar):</strong> Tablonuzda aşağıdaki alanları oluşturun:
-                <ul className="list-disc list-inside space-y-2 text-slate-600 mt-2 pl-6">
-                  <li>
-                    <code>Status</code> (Single Select) - Kaydın türünü belirtir.
-                    <div className="text-sm text-slate-500 mt-1 ml-4 p-2 bg-slate-100 rounded">
-                        Bu alanda <strong>personel</strong> ve <strong>task</strong> adında iki seçenek olmalıdır.
-                    </div>
-                  </li>
-                  <li><code>Personel</code> (Kısa metin) - Personelin adını saklar.</li>
-                  <li><code>PersonelID</code> (Kısa metin) - `cebi.com.tr/foto/ID.png` adresindeki fotoğraf ID'sini (örn: 15, random3) saklar.</li>
-                  <li><code>Company</code> (Kısa metin) - Personelin şirketini saklar.</li>
-                  <li><code>Company Logo</code> (URL) - (İsteğe bağlı) Şirket logosunun URL'sini saklar.</li>
-                  <li><code>Position</code> (Kısa metin) - Personelin statüsünü (örn: Şef, Usta) saklar.</li>
-                </ul>
-              </li>
-            </ul>
-          <div className="flex items-start gap-3 p-4 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg">
-            <AlertTriangleIcon className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
-            <div>
-                <h5 className="font-semibold text-amber-800">Önemli Uyarı</h5>
-                <p className="text-sm text-amber-700">Bu işlem, Airtable'daki 'PomoSablon' tablosunda `Status` alanı `personel` olan tüm mevcut kayıtları silecek ve güncel personel listesini yeniden oluşturacaktır. Bu işlem şablon verilerinizi etkilemez.</p>
-            </div>
-          </div>
-        </div>
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">İptal</button>
-          <button onClick={onConfirm} className="px-4 py-2 text-base font-bold text-white rounded-lg transition-colors bg-blue-600 hover:bg-blue-700">Onayla ve Gönder</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-interface AirtableWorkerFetchConfirmModalProps {
-    onClose: () => void;
-    onConfirm: () => void;
-}
-
-const AirtableWorkerFetchConfirmModal: React.FC<AirtableWorkerFetchConfirmModalProps> = ({ onClose, onConfirm }) => {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6 border-b border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800">Airtable'dan Personel Al</h3>
-        </div>
-        <div className="p-6">
-          <div className="flex items-start gap-3 p-4 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg">
-            <AlertTriangleIcon className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <h5 className="font-semibold text-amber-800">Onay Gerekiyor</h5>
-              <p className="text-base text-amber-700">
-                Bu işlem, Airtable'daki personel verilerini çekecek ve mevcut tüm yerel personel listenizin üzerine yazacaktır. Bu işlem geri alınamaz. Devam etmek istediğinizden emin misiniz?
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">İptal</button>
-          <button onClick={onConfirm} className="px-4 py-2 text-base font-bold text-white rounded-lg transition-colors bg-blue-600 hover:bg-blue-700">Onayla ve Al</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 interface AddWorkerModalProps {
     onClose: () => void;
     onAddWorker: (name: string, company?: string, position?: string) => void;
@@ -212,7 +128,7 @@ const AddWorkerModal: React.FC<AddWorkerModalProps> = ({ onClose, onAddWorker })
                     <button onClick={onClose} type="button" className="px-4 py-2 text-base font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors">
                         İptal
                     </button>
-                    <button type="submit" className="inline-flex items-center gap-2 px-4 py-2 text-base font-bold text-white rounded-lg transition-colors bg-blue-600 hover:bg-blue-700">
+                    <button type="submit" className="inline-flex items-center gap-2 px-4 py-2 text-base font-bold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors">
                         <PlusIcon className="w-5 h-5" />
                         Ekle
                     </button>
@@ -262,28 +178,12 @@ interface TeamManagementProps {
   onDeleteWorker: (workerId: string, workerName: string) => void;
   onEditWorker: (workerId: string) => void;
   onCopyWorker: (workerId: string) => void;
-  onAirSync: () => void;
-  onAirFetch: () => void;
-  isSyncing: boolean;
-  isFetching: boolean;
 }
 
-const TeamManagement: React.FC<TeamManagementProps> = ({ workers, workPackages, onAddWorker, onDeleteWorker, onEditWorker, onCopyWorker, onAirSync, onAirFetch, isSyncing, isFetching }) => {
-  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-  const [isFetchConfirmOpen, setIsFetchConfirmOpen] = useState(false);
+const TeamManagement: React.FC<TeamManagementProps> = ({ workers, workPackages, onAddWorker, onDeleteWorker, onEditWorker, onCopyWorker }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const handleConfirmSync = () => {
-    setIsInfoModalOpen(false);
-    onAirSync();
-  };
-
-  const handleConfirmFetch = () => {
-    setIsFetchConfirmOpen(false);
-    onAirFetch();
-  };
-  
   const getPhotoId = (avatarUrl: string): string => {
       const match = avatarUrl.match(/cebi\.com\.tr\/foto\/(.+)\.png$/);
       return match ? match[1] : '';
@@ -326,26 +226,14 @@ const TeamManagement: React.FC<TeamManagementProps> = ({ workers, workPackages, 
 
   return (
     <div className="space-y-8">
-      {isInfoModalOpen && <AirtableWorkerInfoModal onClose={() => setIsInfoModalOpen(false)} onConfirm={handleConfirmSync} />}
-      {isFetchConfirmOpen && <AirtableWorkerFetchConfirmModal onClose={() => setIsFetchConfirmOpen(false)} onConfirm={handleConfirmFetch} />}
       {isAddModalOpen && <AddWorkerModal onClose={() => setIsAddModalOpen(false)} onAddWorker={onAddWorker} />}
       
       {/* Management Card */}
       <div className="p-6 bg-white border border-slate-200 rounded-xl shadow-md">
         <div className="flex flex-wrap gap-4 justify-between items-center mb-4">
           <h2 className="text-lg sm:text-xl font-bold text-slate-800">Ekip Yönetimi</h2>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setIsFetchConfirmOpen(true)} disabled={isFetching || isSyncing} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
-              {isFetching ? <LoaderIcon className="w-4 h-4" /> : <DownloadIcon className="w-4 h-4" />}
-              <span>{isFetching ? 'Alınıyor...' : 'Airtable\'dan Al'}</span>
-            </button>
-            <button onClick={() => setIsInfoModalOpen(true)} disabled={isSyncing || isFetching} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-wait">
-              {isSyncing ? <LoaderIcon className="w-4 h-4" /> : <DatabaseIcon className="w-4 h-4" />}
-              <span>{isSyncing ? 'Gönderiliyor...' : 'Airtable\'a Gönder'}</span>
-            </button>
-          </div>
         </div>
-        <p className="text-base text-slate-500">Yeni personel ekleyin veya mevcut personelleri düzenleyin. Personel listenizi Airtable ile senkronize edebilirsiniz.</p>
+        <p className="text-base text-slate-500">Yeni personel ekleyin veya mevcut personelleri düzenleyin. Tüm verilerinizi ana sayfadaki düğmeleri kullanarak Airtable ile senkronize edebilirsiniz.</p>
       </div>
       
       {/* Search and Add Controls */}
@@ -374,7 +262,7 @@ const TeamManagement: React.FC<TeamManagementProps> = ({ workers, workPackages, 
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-base font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 text-base font-bold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors"
           >
             <PlusIcon className="w-5 h-5" />
             Yeni Personel Ekle
