@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { WorkPackageTemplate, TaskTemplate } from '../types';
-import { PlusIcon, TrashIcon, PencilIcon, DatabaseIcon, DownloadIcon, AlertTriangleIcon, ExternalLinkIcon, LoaderIcon } from './icons';
+import { PlusIcon, TrashIcon, PencilIcon, CopyIcon } from './icons';
 
 type EditableTask = {
   title: string;
@@ -146,7 +146,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onClo
                                                     <div key={subTaskIndex} className="flex items-center gap-2">
                                                         <span className="text-slate-400">└</span>
                                                         <input type="text" value={subTask.title} onChange={(e) => handleSubTaskChange(taskIndex, subTaskIndex, e.target.value)}
-                                                            className="flex-grow px-2 py-1 bg-white border border-slate-200 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder={`Alt Görev ${subTaskIndex + 1}`} />
+                                                            className="flex-grow px-2 py-1 bg-white border border-slate-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder={`Alt Görev ${subTaskIndex + 1}`} />
                                                         <button type="button" onClick={() => removeSubTaskInput(taskIndex, subTaskIndex)}
                                                             className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full flex-shrink-0" aria-label="Alt görevi kaldır">
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -182,9 +182,10 @@ interface TemplateManagementProps {
     onAddTemplate: (template: Omit<WorkPackageTemplate, 'id'>) => void;
     onUpdateTemplate: (template: WorkPackageTemplate) => void;
     onDeleteTemplate: (templateId: string, templateTitle: string) => void;
+    onCopyTemplate: (templateId: string) => void;
 }
 
-const TemplateManagement: React.FC<TemplateManagementProps> = ({ templates, onAddTemplate, onUpdateTemplate, onDeleteTemplate }) => {
+const TemplateManagement: React.FC<TemplateManagementProps> = ({ templates, onAddTemplate, onUpdateTemplate, onDeleteTemplate, onCopyTemplate }) => {
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState<WorkPackageTemplate | null>(null);
     
@@ -234,6 +235,9 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ templates, onAd
                                 <p className="text-sm text-slate-500 truncate">{template.description}</p>
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                                <button onClick={() => onCopyTemplate(template.id)} className="p-2 text-slate-400 hover:text-green-500 hover:bg-green-100 rounded-full" aria-label="Şablonu kopyala">
+                                    <CopyIcon className="w-5 h-5" />
+                                </button>
                                <button onClick={() => handleEdit(template)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-100 rounded-full" aria-label="Şablonu düzenle">
                                     <PencilIcon className="w-5 h-5" />
                                 </button>

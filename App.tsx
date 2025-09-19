@@ -466,6 +466,20 @@ const App: React.FC = () => {
     setDeleteTarget({ type: 'template', id: templateId, name: templateTitle });
   };
 
+  const handleCopyTemplate = useCallback((templateId: string) => {
+    const templateToCopy = templates.find(t => t.id === templateId);
+    if (!templateToCopy) return;
+
+    const newTemplate: WorkPackageTemplate = {
+      ...templateToCopy,
+      id: `tpl-${Date.now()}`,
+      title: `${templateToCopy.title} (Kopya)`,
+    };
+
+    setTemplates(prev => [newTemplate, ...prev]);
+    showToast(`'${templateToCopy.title}' şablonu kopyalandı.`, 'success');
+  }, [templates, showToast]);
+
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
 
@@ -793,6 +807,7 @@ const App: React.FC = () => {
               onAddTemplate={handleAddTemplate}
               onUpdateTemplate={handleUpdateTemplate}
               onDeleteTemplate={handleDeleteTemplate}
+              onCopyTemplate={handleCopyTemplate}
             />
         )}
       </main>
