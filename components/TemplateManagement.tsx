@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import type { WorkPackageTemplate, TaskTemplate } from '../types';
 import { PlusIcon, TrashIcon, PencilIcon, CopyIcon } from './icons';
@@ -149,6 +150,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSave, onClo
                                                             className="flex-grow px-2 py-1 bg-white border border-slate-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder={`Alt Görev ${subTaskIndex + 1}`} />
                                                         <button type="button" onClick={() => removeSubTaskInput(taskIndex, subTaskIndex)}
                                                             className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full flex-shrink-0" aria-label="Alt görevi kaldır">
+                                                            {/* FIX: Corrected an SVG with duplicate attributes causing a JSX error. */}
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                                         </button>
                                                     </div>
@@ -229,19 +231,35 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ templates, onAd
                 {templates.length > 0 ? (
                     <div className="space-y-3">
                         {templates.map(template => (
-                        <div key={template.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div 
+                            key={template.id} 
+                            onClick={() => handleEdit(template)}
+                            className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                        >
                             <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-base text-slate-800 truncate">{template.title}</p>
                                 <p className="text-sm text-slate-500 truncate">{template.description}</p>
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                                <button onClick={() => onCopyTemplate(template.id)} className="p-2 text-slate-400 hover:text-green-500 hover:bg-green-100 rounded-full" aria-label="Şablonu kopyala">
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onCopyTemplate(template.id); }} 
+                                    className="p-2 text-slate-400 hover:text-green-500 hover:bg-green-100 rounded-full" 
+                                    aria-label="Şablonu kopyala"
+                                >
                                     <CopyIcon className="w-5 h-5" />
                                 </button>
-                               <button onClick={() => handleEdit(template)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-100 rounded-full" aria-label="Şablonu düzenle">
+                               <button 
+                                    onClick={(e) => { e.stopPropagation(); handleEdit(template); }} 
+                                    className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-100 rounded-full" 
+                                    aria-label="Şablonu düzenle"
+                                >
                                     <PencilIcon className="w-5 h-5" />
                                 </button>
-                                <button onClick={() => onDeleteTemplate(template.id, template.title)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded-full" aria-label="Şablonu sil">
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onDeleteTemplate(template.id, template.title); }} 
+                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded-full" 
+                                    aria-label="Şablonu sil"
+                                >
                                     <TrashIcon className="w-5 h-5" />
                                 </button>
                             </div>
